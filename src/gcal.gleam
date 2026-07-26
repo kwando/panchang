@@ -1,6 +1,7 @@
 import gleam/list
 import gleam/result
 import gleam/string
+import splitter
 
 pub type Calendar {
   Calendar(version: String, prodid: String, events: List(Event))
@@ -32,53 +33,101 @@ type Component {
   Component(kind: String, properties: List(Property), children: List(Component))
 }
 
-pub fn parse(input: String) -> Result(Calendar, Error) {
-  let lines =
-    input
-    |> string.replace("\r\n", "\n")
-    |> string.replace("\r", "\n")
-    |> string.split("\n")
-    |> unfold_lines
-    |> list.filter(fn(line) { line != "" })
+type Splitters {
+  Splitters(
+    lines: splitter.Splitter,
+    begin: splitter.Splitter,
+    colon: splitter.Splitter,
+    semi: splitter.Splitter,
+    eq: splitter.Splitter,
+  )
+}
 
-  case parse_all_components(lines, []) {
+pub fn parse(input: String) -> Result(Calendar, Error) {
+  let splitters =
+    Splitters(
+      lines: splitter.new(["\r\n", "\n"]),
+      begin: splitter.new(["BEGIN:"]),
+      colon: splitter.new([":"]),
+      semi: splitter.new([";"]),
+      eq: splitter.new(["="]),
+    )
+
+  let lines = unfold_lines(input, splitters.lines)
+  let non_empty = list.filter(lines, fn(line) { line != "" })
+
+  case parse_all_components(non_empty, [], splitters) {
     Ok(components) -> build_calendar(components)
     Error(err) -> Error(err)
   }
 }
 
-fn unfold_lines(lines: List(String)) -> List(String) {
-  lines
-  |> list.fold([], fn(acc: List(String), line: String) {
-    case acc {
-      [] -> [line]
-      [prev, ..rest] ->
-        case string.starts_with(line, " ") || string.starts_with(line, "\t") {
-          True ->
-            case string.pop_grapheme(line) {
-              Ok(#(_, remaining)) -> [prev <> remaining, ..rest]
-              Error(_) -> [prev, ..acc]
-            }
-          False -> [line, prev, ..rest]
-        }
-    }
-  })
+fn unfold_lines(
+  input: String,
+  line_splitter: splitter.Splitter,
+) -> List(String) {
+  do_unfold_lines(input, line_splitter, [])
   |> list.reverse
+}
+
+fn do_unfold_lines(
+  input: String,
+  line_splitter: splitter.Splitter,
+  acc: List(String),
+) -> List(String) {
+  case splitter.split(line_splitter, input) {
+    #(line, "", "") ->
+      case acc {
+        [] -> [line]
+        [prev, ..rest] ->
+          case string.starts_with(line, " ") || string.starts_with(line, "\t") {
+            True ->
+              case string.pop_grapheme(line) {
+                Ok(#(_, remaining)) -> [prev <> remaining, ..rest]
+                Error(_) -> [prev, ..acc]
+              }
+            False -> [line, prev, ..rest]
+          }
+      }
+    #(line, _, remaining) ->
+      case acc {
+        [] -> do_unfold_lines(remaining, line_splitter, [line])
+        [prev, ..rest] ->
+          case string.starts_with(line, " ") || string.starts_with(line, "\t") {
+            True ->
+              case string.pop_grapheme(line) {
+                Ok(#(_, remaining_line)) ->
+                  do_unfold_lines(remaining, line_splitter, [
+                    prev <> remaining_line,
+                    ..rest
+                  ])
+                Error(_) ->
+                  do_unfold_lines(remaining, line_splitter, [prev, ..acc])
+              }
+            False ->
+              do_unfold_lines(remaining, line_splitter, [line, prev, ..rest])
+          }
+      }
+  }
 }
 
 fn parse_all_components(
   lines: List(String),
   acc: List(Component),
+  splitters: Splitters,
 ) -> Result(List(Component), Error) {
   case lines {
     [] -> Ok(list.reverse(acc))
-    ["BEGIN:" <> kind, ..rest] ->
-      case parse_component(kind, rest, [], []) {
-        Ok(#(component, remaining)) ->
-          parse_all_components(remaining, [component, ..acc])
-        Error(err) -> Error(err)
+    [line, ..rest] ->
+      case splitter.split(splitters.begin, line) {
+        #("", "BEGIN:", kind) ->
+          case parse_component(kind, rest, [], [], splitters) {
+            Ok(#(component, remaining)) ->
+              parse_all_components(remaining, [component, ..acc], splitters)
+            Error(err) -> Error(err)
+          }
+        _ -> Error(ParseError("Unexpected line: " <> line))
       }
-    [line, ..] -> Error(ParseError("Unexpected line: " <> line))
   }
 }
 
@@ -87,6 +136,7 @@ fn parse_component(
   lines: List(String),
   props: List(Property),
   children: List(Component),
+  splitters: Splitters,
 ) -> Result(#(Component, List(String)), Error) {
   let end_marker = "END:" <> kind
   case lines {
@@ -99,23 +149,29 @@ fn parse_component(
             rest,
           ))
         False ->
-          case string.starts_with(line, "BEGIN:") {
-            True -> {
-              let subkind =
-                case string.split_once(line, "BEGIN:") {
-                  Ok(#(_, k)) -> k
-                  Error(_) -> ""
-                }
-              case parse_component(subkind, rest, [], []) {
+          case splitter.split(splitters.begin, line) {
+            #("", "BEGIN:", subkind) ->
+              case parse_component(subkind, rest, [], [], splitters) {
                 Ok(#(child, remaining)) ->
-                  parse_component(kind, remaining, props, [child, ..children])
+                  parse_component(
+                    kind,
+                    remaining,
+                    props,
+                    [child, ..children],
+                    splitters,
+                  )
                 Error(err) -> Error(err)
               }
-            }
-            False ->
-              case parse_property(line) {
+            _ ->
+              case parse_property(line, splitters) {
                 Ok(prop) ->
-                  parse_component(kind, rest, [prop, ..props], children)
+                  parse_component(
+                    kind,
+                    rest,
+                    [prop, ..props],
+                    children,
+                    splitters,
+                  )
                 Error(err) -> Error(err)
               }
           }
@@ -123,32 +179,61 @@ fn parse_component(
   }
 }
 
-fn parse_property(line: String) -> Result(Property, Error) {
-  case string.split_once(line, ":") {
-    Ok(#(name_part, value)) -> {
-      let #(name, params) = parse_name_and_params(name_part)
+fn parse_property(
+  line: String,
+  splitters: Splitters,
+) -> Result(Property, Error) {
+  case splitter.split(splitters.colon, line) {
+    #(name_part, ":", value) -> {
+      let #(name, params) = parse_name_and_params(name_part, splitters)
       Ok(Property(name, params, unescape_text(value)))
     }
-    Error(_) -> Error(ParseError("Invalid property line: " <> line))
+    _ -> Error(ParseError("Invalid property line: " <> line))
   }
 }
 
-fn parse_name_and_params(part: String) -> #(String, List(Parameter)) {
-  case string.split_once(part, ";") {
-    Ok(#(name, params_str)) -> #(name, parse_params(params_str))
-    Error(_) -> #(part, [])
+fn parse_name_and_params(
+  part: String,
+  splitters: Splitters,
+) -> #(String, List(Parameter)) {
+  case splitter.split(splitters.semi, part) {
+    #(name, ";", params_str) -> #(name, parse_params(params_str, splitters))
+    _ -> #(part, [])
   }
 }
 
-fn parse_params(params_str: String) -> List(Parameter) {
-  params_str
-  |> string.split(";")
-  |> list.filter_map(fn(param) {
-    case string.split_once(param, "=") {
-      Ok(#(name, value)) -> Ok(Parameter(name, value))
-      Error(_) -> Error(Nil)
-    }
-  })
+fn parse_params(params_str: String, splitters: Splitters) -> List(Parameter) {
+  do_parse_params(params_str, [], splitters)
+}
+
+fn do_parse_params(
+  input: String,
+  acc: List(Parameter),
+  splitters: Splitters,
+) -> List(Parameter) {
+  case splitter.split(splitters.semi, input) {
+    #(param, ";", remaining) ->
+      case parse_single_param(param, splitters) {
+        Ok(p) -> do_parse_params(remaining, [p, ..acc], splitters)
+        Error(_) -> do_parse_params(remaining, acc, splitters)
+      }
+    #(param, "", "") ->
+      case parse_single_param(param, splitters) {
+        Ok(p) -> list.reverse([p, ..acc])
+        Error(_) -> list.reverse(acc)
+      }
+    _ -> list.reverse(acc)
+  }
+}
+
+fn parse_single_param(
+  param: String,
+  splitters: Splitters,
+) -> Result(Parameter, Error) {
+  case splitter.split(splitters.eq, param) {
+    #(name, "=", value) -> Ok(Parameter(name, value))
+    _ -> Error(ParseError("Invalid parameter: " <> param))
+  }
 }
 
 fn unescape_text(text: String) -> String {
