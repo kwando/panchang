@@ -172,16 +172,7 @@ fn build_event(props: List(Property)) -> Event {
   let dtstart = extract_prop(props, "DTSTART")
   let dtend = extract_prop(props, "DTEND")
 
-  let raw =
-    props
-    |> list.filter(fn(p) {
-      p.name != "UID"
-      && p.name != "SUMMARY"
-      && p.name != "DTSTART"
-      && p.name != "DTEND"
-    })
-
-  Event(uid, summary, dtstart, dtend, raw)
+  Event(uid, summary, dtstart, dtend, props)
 }
 
 fn build_calendar(components: List(Component)) -> Result(Calendar, Error) {

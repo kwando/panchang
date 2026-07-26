@@ -45,6 +45,13 @@ pub fn parse_event_with_parameters_test() {
 
   assert event.dtstart == "20230101T100000"
   assert event.dtend == "20230101T110000"
+
+  let assert Ok(dtstart_prop) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "DTSTART" })
+
+  let assert [param] = dtstart_prop.params
+  assert param.name == "TZID"
+  assert param.value == "Europe/Stockholm"
 }
 
 pub fn parse_property_with_params_in_raw_test() {
