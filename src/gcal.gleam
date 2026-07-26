@@ -40,6 +40,7 @@ type Splitters {
     colon: splitter.Splitter,
     semi: splitter.Splitter,
     eq: splitter.Splitter,
+    ws: splitter.Splitter,
   )
 }
 
@@ -51,9 +52,10 @@ pub fn parse(input: String) -> Result(Calendar, Error) {
       colon: splitter.new([":"]),
       semi: splitter.new([";"]),
       eq: splitter.new(["="]),
+      ws: splitter.new([" ", "\t"]),
     )
 
-  let lines = unfold_lines(input, splitters.lines)
+  let lines = unfold_lines(input, splitters)
   let non_empty = list.filter(lines, fn(line) { line != "" })
 
   case parse_all_components(non_empty, [], splitters) {
@@ -64,48 +66,44 @@ pub fn parse(input: String) -> Result(Calendar, Error) {
 
 fn unfold_lines(
   input: String,
-  line_splitter: splitter.Splitter,
+  splitters: Splitters,
 ) -> List(String) {
-  do_unfold_lines(input, line_splitter, [])
+  do_unfold_lines(input, splitters, [])
   |> list.reverse
 }
 
 fn do_unfold_lines(
   input: String,
-  line_splitter: splitter.Splitter,
+  splitters: Splitters,
   acc: List(String),
 ) -> List(String) {
-  case splitter.split(line_splitter, input) {
+  case splitter.split(splitters.lines, input) {
     #(line, "", "") ->
       case acc {
         [] -> [line]
         [prev, ..rest] ->
           case string.starts_with(line, " ") || string.starts_with(line, "\t") {
-            True ->
-              case string.pop_grapheme(line) {
-                Ok(#(_, remaining)) -> [prev <> remaining, ..rest]
-                Error(_) -> [prev, ..acc]
-              }
+            True -> {
+              let #(_, remaining) = splitter.split_after(splitters.ws, line)
+              [prev <> remaining, ..rest]
+            }
             False -> [line, prev, ..rest]
           }
       }
     #(line, _, remaining) ->
       case acc {
-        [] -> do_unfold_lines(remaining, line_splitter, [line])
+        [] -> do_unfold_lines(remaining, splitters, [line])
         [prev, ..rest] ->
           case string.starts_with(line, " ") || string.starts_with(line, "\t") {
-            True ->
-              case string.pop_grapheme(line) {
-                Ok(#(_, remaining_line)) ->
-                  do_unfold_lines(remaining, line_splitter, [
-                    prev <> remaining_line,
-                    ..rest
-                  ])
-                Error(_) ->
-                  do_unfold_lines(remaining, line_splitter, [prev, ..acc])
-              }
+            True -> {
+              let #(_, remaining_line) = splitter.split_after(splitters.ws, line)
+              do_unfold_lines(remaining, splitters, [
+                prev <> remaining_line,
+                ..rest
+              ])
+            }
             False ->
-              do_unfold_lines(remaining, line_splitter, [line, prev, ..rest])
+              do_unfold_lines(remaining, splitters, [line, prev, ..rest])
           }
       }
   }
