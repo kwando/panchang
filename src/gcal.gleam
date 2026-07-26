@@ -3,16 +3,17 @@ import gleam/result
 import gleam/string
 
 pub type Calendar {
-  Calendar(
-    version: String,
-    prodid: String,
-    properties: List(Property),
-    events: List(Event),
-  )
+  Calendar(version: String, prodid: String, events: List(Event))
 }
 
 pub type Event {
-  Event(properties: List(Property))
+  Event(
+    uid: String,
+    summary: String,
+    dtstart: String,
+    dtend: String,
+    raw: List(Property),
+  )
 }
 
 pub type Property {
@@ -158,65 +159,52 @@ fn unescape_text(text: String) -> String {
   |> string.replace("\\\\", "\\")
 }
 
-fn flatten_components(
-  components: List(Component),
-) -> List(#(String, List(Property), List(Component))) {
-  components
-  |> list.map(fn(c) { #(c.kind, c.properties, c.children) })
+fn extract_prop(props: List(Property), name: String) -> String {
+  props
+  |> list.find(fn(p) { p.name == name })
+  |> result.map(fn(p) { p.value })
+  |> result.unwrap("")
 }
 
-fn build_calendar(
-  components: List(Component),
-) -> Result(Calendar, Error) {
-  let flat = flatten_components(components)
+fn build_event(props: List(Property)) -> Event {
+  let uid = extract_prop(props, "UID")
+  let summary = extract_prop(props, "SUMMARY")
+  let dtstart = extract_prop(props, "DTSTART")
+  let dtend = extract_prop(props, "DTEND")
+
+  let raw =
+    props
+    |> list.filter(fn(p) {
+      p.name != "UID"
+      && p.name != "SUMMARY"
+      && p.name != "DTSTART"
+      && p.name != "DTEND"
+    })
+
+  Event(uid, summary, dtstart, dtend, raw)
+}
+
+fn build_calendar(components: List(Component)) -> Result(Calendar, Error) {
+  let flat =
+    components
+    |> list.map(fn(c) { #(c.kind, c.properties, c.children) })
+
   case list.find(flat, fn(c) { c.0 == "VCALENDAR" }) {
     Ok(#(_, cal_props, cal_children)) -> {
-      let version =
-        cal_props
-        |> list.find(fn(p) { p.name == "VERSION" })
-        |> result.map(fn(p) { p.value })
-        |> result.unwrap("")
-
-      let prodid =
-        cal_props
-        |> list.find(fn(p) { p.name == "PRODID" })
-        |> result.map(fn(p) { p.value })
-        |> result.unwrap("")
+      let version = extract_prop(cal_props, "VERSION")
+      let prodid = extract_prop(cal_props, "PRODID")
 
       let events =
         cal_children
         |> list.filter_map(fn(c) {
           case c.kind {
-            "VEVENT" -> Ok(Event(c.properties))
+            "VEVENT" -> Ok(build_event(c.properties))
             _ -> Error(Nil)
           }
         })
 
-      Ok(Calendar(version, prodid, cal_props, events))
+      Ok(Calendar(version, prodid, events))
     }
     Error(_) -> Error(ParseError("No VCALENDAR component found"))
   }
-}
-
-pub fn get_event_property(event: Event, name: String) -> Result(String, Error) {
-  case list.find(event.properties, fn(p) { p.name == name }) {
-    Ok(prop) -> Ok(prop.value)
-    Error(_) -> Error(ParseError("Property not found: " <> name))
-  }
-}
-
-pub fn get_event_summary(event: Event) -> Result(String, Error) {
-  get_event_property(event, "SUMMARY")
-}
-
-pub fn get_event_uid(event: Event) -> Result(String, Error) {
-  get_event_property(event, "UID")
-}
-
-pub fn get_event_location(event: Event) -> Result(String, Error) {
-  get_event_property(event, "LOCATION")
-}
-
-pub fn get_event_description(event: Event) -> Result(String, Error) {
-  get_event_property(event, "DESCRIPTION")
 }
