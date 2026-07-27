@@ -95,7 +95,13 @@ pub type ParseError {
   ParseError(String)
 }
 
-type Component {
+/// A raw iCal component, such as `VCALENDAR`, `VEVENT`, or `VTIMEZONE`.
+///
+/// Components are nested: a `VCALENDAR` contains `VEVENT` children, and each
+/// `VEVENT` may contain `VALARM` children. Use `parse_tree` to get the full
+/// component tree without it being converted into a `Calendar`.
+///
+pub type Component {
   Component(kind: String, properties: List(Property), children: List(Component))
 }
 
@@ -156,16 +162,38 @@ pub fn new_parser(tz_db: database.TzDatabase) {
 ///   ical.parse(parser, ical, option.Some("Europe/Stockholm"))
 /// ```
 ///
+/// Parse an iCal string into a raw component tree.
+///
+/// Returns the single root `VCALENDAR` component with all its children, such as
+/// `VEVENT`, `VTODO`, `VTIMEZONE`, `VALARM`, etc. This is useful when you need
+/// access to components or properties that the higher-level `parse` function
+/// does not expose.
+///
+/// Errors if the input is empty or contains more than one top-level component.
+///
+pub fn parse_tree(
+  parser: Parser,
+  input: String,
+) -> Result(Component, ParseError) {
+  let lines = unfold_lines(input, parser)
+  let non_empty = list.filter(lines, fn(line) { line != "" })
+
+  case parse_all_components(non_empty, []) {
+    Ok([root]) -> Ok(root)
+    Ok([]) -> Error(ParseError("No VCALENDAR component found"))
+    Ok(_) ->
+      Error(ParseError("Multiple top-level components are not supported"))
+    Error(err) -> Error(err)
+  }
+}
+
 pub fn parse(
   parser: Parser,
   input: String,
   timezone: Option(String),
 ) -> Result(Calendar, ParseError) {
-  let lines = unfold_lines(input, parser)
-  let non_empty = list.filter(lines, fn(line) { line != "" })
-
-  case parse_all_components(non_empty, []) {
-    Ok(components) -> build_calendar(components, timezone, parser)
+  case parse_tree(parser, input) {
+    Ok(root) -> build_calendar([root], timezone, parser)
     Error(err) -> Error(err)
   }
 }

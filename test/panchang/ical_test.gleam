@@ -366,6 +366,65 @@ pub fn parse_event_missing_optional_fields_test() {
   assert event.dtstamp == None
 }
 
+pub fn parse_tree_root_test() {
+  let input = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nEND:VCALENDAR"
+  let assert Ok(root) = ical.parse_tree(ical.new_parser(tzdb()), input)
+
+  assert root.kind == "VCALENDAR"
+  assert root.children == []
+
+  let assert Ok(version_prop) =
+    list.find(root.properties, fn(p) { p.name == "VERSION" })
+  assert version_prop.value == "2.0"
+
+  let assert Ok(prodid_prop) =
+    list.find(root.properties, fn(p) { p.name == "PRODID" })
+  assert prodid_prop.value == "-//Test//EN"
+}
+
+pub fn parse_tree_events_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Meeting\nUID:meeting@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(root) = ical.parse_tree(ical.new_parser(tzdb()), input)
+
+  assert root.kind == "VCALENDAR"
+
+  let assert [event] = root.children
+  assert event.kind == "VEVENT"
+  assert event.children == []
+
+  let assert Ok(summary_prop) =
+    list.find(event.properties, fn(p) { p.name == "SUMMARY" })
+  assert summary_prop.value == "Meeting"
+}
+
+pub fn parse_tree_nested_alarm_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Meeting\nUID:alarm@test\nBEGIN:VALARM\nACTION:DISPLAY\nDESCRIPTION:Reminder\nEND:VALARM\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(root) = ical.parse_tree(ical.new_parser(tzdb()), input)
+
+  let assert [event] = root.children
+  assert event.kind == "VEVENT"
+
+  let assert [alarm] = event.children
+  assert alarm.kind == "VALARM"
+
+  let assert Ok(action) =
+    list.find(alarm.properties, fn(p) { p.name == "ACTION" })
+  assert action.value == "DISPLAY"
+}
+
+pub fn parse_tree_multiple_roots_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nEND:VCALENDAR\nBEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nEND:VCALENDAR"
+  let assert Error(_) = ical.parse_tree(ical.new_parser(tzdb()), input)
+}
+
+pub fn parse_tree_empty_test() {
+  let input = ""
+  let assert Error(_) = ical.parse_tree(ical.new_parser(tzdb()), input)
+}
+
 pub fn get_property_test() {
   let event =
     ical.Event(
