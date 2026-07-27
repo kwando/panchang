@@ -2,6 +2,7 @@ import argv
 import gcal
 import gleam/io
 import gleam/list
+import gleam/option.{None}
 import gleam/result
 import gleam/string
 import gleam/time/calendar
@@ -33,7 +34,8 @@ pub fn main() {
       let parser = gcal.new_parser(tzdata)
 
       use calendar <- result.try(
-        gcal.parse(parser, data) |> result.map_error(CannotParseCalendar),
+        gcal.parse(parser, data, None)
+        |> result.map_error(CannotParseCalendar),
       )
       prettify_calendar(calendar)
     }

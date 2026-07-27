@@ -1,5 +1,6 @@
 import gcal
 import gleam/list
+import gleam/option.{None, Some}
 import gleam/string
 import gleam/time/timestamp
 import gleeunit
@@ -12,7 +13,7 @@ pub fn main() -> Nil {
 
 fn gcal_parse(input: String) -> Result(gcal.Calendar, gcal.ParseError) {
   gcal.new_parser(tzdb())
-  |> gcal.parse(input)
+  |> gcal.parse(input, None)
 }
 
 pub fn parse_simple_calendar_test() {
@@ -215,10 +216,11 @@ pub fn parse_datetime_lowercase_z_test() {
   assert secs == 1_672_567_200
 }
 
-pub fn parse_calendar_with_x_wr_timezone_test() {
+pub fn parse_calendar_with_timezone_test() {
   let input =
-    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nX-WR-TIMEZONE:Europe/Stockholm\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal_parse(input)
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) =
+    gcal.parse(gcal.new_parser(tzdb()), input, Some("Europe/Stockholm"))
 
   assert calendar.timezone == "Europe/Stockholm"
 
@@ -227,11 +229,11 @@ pub fn parse_calendar_with_x_wr_timezone_test() {
   assert secs == 1_672_563_600
 }
 
-pub fn parse_with_timezone_overrides_x_wr_timezone_test() {
+pub fn parse_with_timezone_test() {
   let input =
-    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nX-WR-TIMEZONE:Europe/Stockholm\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"
   let assert Ok(calendar) =
-    gcal.parse_with_timezone(gcal.new_parser(tzdb()), input, "America/New_York")
+    gcal.parse(gcal.new_parser(tzdb()), input, Some("America/New_York"))
 
   assert calendar.timezone == "America/New_York"
 

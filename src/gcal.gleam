@@ -1,5 +1,6 @@
 import gleam/int
 import gleam/list
+import gleam/option.{type Option}
 import gleam/result
 import gleam/string
 import gleam/time/calendar
@@ -9,7 +10,7 @@ import tzif/database
 
 /// A parsed iCal calendar.
 ///
-/// Contains the calendar version, producer ID, the detected timezone used for
+/// Contains the calendar version, producer ID, the timezone used for
 /// resolving floating-time events, and a list of parsed events.
 ///
 pub type Calendar {
@@ -18,9 +19,8 @@ pub type Calendar {
     version: String,
     /// The producer identifier, e.g. `"-//Apple Inc.//macOS 14.0//EN"`.
     prodid: String,
-    /// The timezone used for resolving floating-time events. Either extracted
-    /// from the `X-WR-TIMEZONE` property, the value passed to
-    /// `parse_with_timezone`, or `"UTC"` as a fallback.
+    /// The timezone used for resolving floating-time events. Either the
+    /// value passed to `parse`, or `"UTC"` if `None` was provided.
     timezone: String,
     /// All parsed VEVENT components.
     events: List(Event),
@@ -84,6 +84,11 @@ type Component {
   Component(kind: String, properties: List(Property), children: List(Component))
 }
 
+/// A parser for iCal strings. Holds pre-built splitters for efficient
+/// string parsing and a timezone database for resolving datetime values.
+///
+/// Create one with `new_parser` and reuse it across multiple parse calls.
+///
 pub opaque type Parser {
   Parser(
     lines: splitter.Splitter,
@@ -97,6 +102,16 @@ pub opaque type Parser {
   )
 }
 
+/// Create a new parser with the given timezone database.
+///
+/// ```gleam
+/// import tzif/database
+/// import gcal
+///
+/// let assert Ok(db) = database.load_from_os()
+/// let parser = gcal.new_parser(db)
+/// ```
+///
 pub fn new_parser(tz_db: database.TzDatabase) {
   Parser(
     lines: splitter.new(["\r\n", "\n"]),
@@ -113,39 +128,35 @@ pub fn new_parser(tz_db: database.TzDatabase) {
 /// Parse an iCal string into a `Calendar`.
 ///
 /// Floating-time events (those without a `Z` suffix or `TZID` parameter) are
-/// resolved using the `X-WR-TIMEZONE` property if present, otherwise UTC.
-///
-/// ```gleam
-/// let assert Ok(calendar) = gcal.parse(ical_string)
-/// calendar.events
-/// ```
-///
-pub fn parse(parser: Parser, input: String) -> Result(Calendar, ParseError) {
-  parse_with_timezone(parser, input, "")
-}
-
-/// Parse an iCal string into a `Calendar`, using the given timezone for
-/// floating-time events.
-///
-/// Floating-time events are those without a `Z` suffix and without a `TZID`
-/// parameter. This function resolves them to the provided timezone instead
-/// of using `X-WR-TIMEZONE` or UTC.
+/// resolved using the provided `timezone`, otherwise UTC.
 ///
 /// Events with an explicit `TZID` parameter are always resolved using that
 /// timezone, regardless of this argument.
 ///
 /// ```gleam
+/// import gcal
+/// import gleam/option
+/// import tzif/database
+///
+/// let assert Ok(db) = database.load_from_os()
+/// let parser = gcal.new_parser(db)
+///
+/// // Use UTC for floating times
+/// let assert Ok(calendar) = gcal.parse(parser, ical, option.None)
+///
+/// // Resolve floating times to a specific timezone
 /// let assert Ok(calendar) =
-///   gcal.parse_with_timezone(ical_string, "Europe/Stockholm")
+///   gcal.parse(parser, ical, option.Some("Europe/Stockholm"))
 /// ```
 ///
-pub fn parse_with_timezone(
+pub fn parse(
   parser: Parser,
   input: String,
-  tz: String,
+  timezone: Option(String),
 ) -> Result(Calendar, ParseError) {
   let lines = unfold_lines(input, parser)
   let non_empty = list.filter(lines, fn(line) { line != "" })
+  let tz = option.unwrap(timezone, "UTC")
 
   case parse_all_components(non_empty, [], parser) {
     Ok(components) -> build_calendar(components, tz, parser)
@@ -457,7 +468,7 @@ fn parse_datetime_value(
 
 /// Parse a datetime property value into a `Timestamp`.
 ///
-/// Handles three iCal datetime formats:
+/// Handles these iCal datetime formats:
 /// - UTC: `20230101T100000Z`
 /// - Timezone-aware: `20230101T100000` with `TZID=Europe/Stockholm` parameter
 /// - Date-only: `VALUE=DATE:20230101` (treated as midnight UTC)
