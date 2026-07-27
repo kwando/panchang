@@ -5,7 +5,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import gleam/time/calendar
-import gleam/time/timestamp
+import gleam/time/timestamp.{type Timestamp}
 import splitter
 import tzif/database
 import tzif/tzcalendar
@@ -48,17 +48,17 @@ pub type Event {
     url: String,
     /// The start time as an unambiguous timestamp. Returns `unix_epoch` if
     /// missing or unparseable.
-    dtstart: timestamp.Timestamp,
+    dtstart: Timestamp,
     /// The end time as an unambiguous timestamp. Returns `unix_epoch` if
     /// missing or unparseable.
-    dtend: timestamp.Timestamp,
+    dtend: Timestamp,
     /// The creation timestamp, if present.
-    created: Option(timestamp.Timestamp),
+    created: Option(Timestamp),
     /// The last-modified timestamp, if present.
-    last_modified: Option(timestamp.Timestamp),
+    last_modified: Option(Timestamp),
     /// The data-instance timestamp. UTC time when this iCalendar object was
     /// generated or revised. Required by RFC 5545 but stored as Option.
-    dtstamp: Option(timestamp.Timestamp),
+    dtstamp: Option(Timestamp),
     /// True when the event uses date-only values (`VALUE=DATE`), indicating
     /// an all-day event.
     is_all_day: Bool,
@@ -518,7 +518,7 @@ fn extract_timestamp(
   props: List(Property),
   name: String,
   parser: Parser,
-) -> Option(timestamp.Timestamp) {
+) -> Option(Timestamp) {
   props
   |> list.find(fn(p) { name_eq(p.name, name) })
   |> result.map(fn(p) { parse_datetime(p, parser, "UTC") })
@@ -547,7 +547,7 @@ fn parse_int(s: String) -> Result(Int, ParseError) {
 
 // Date-only values (VALUE=DATE) have no time component; treat them as
 // midnight UTC so they still produce a valid timestamp.
-fn parse_date_only(value: String) -> Result(timestamp.Timestamp, ParseError) {
+fn parse_date_only(value: String) -> Result(Timestamp, ParseError) {
   case string.length(value) {
     8 -> {
       let year = parse_int(string.slice(value, 0, 4))
@@ -682,7 +682,7 @@ pub fn parse_datetime(
   prop: Property,
   parser: Parser,
   fallback_tz: String,
-) -> timestamp.Timestamp {
+) -> Timestamp {
   let value = prop.value
 
   case value == "" {
