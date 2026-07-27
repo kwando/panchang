@@ -1,7 +1,7 @@
 import gleam/bit_array
 import gleam/int
 import gleam/list
-import gleam/option.{type Option}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import gleam/time/calendar
@@ -157,10 +157,9 @@ pub fn parse(
 ) -> Result(Calendar, ParseError) {
   let lines = unfold_lines(input, parser)
   let non_empty = list.filter(lines, fn(line) { line != "" })
-  let tz = option.unwrap(timezone, "UTC")
 
   case parse_all_components(non_empty, [], parser) {
-    Ok(components) -> build_calendar(components, tz, parser)
+    Ok(components) -> build_calendar(components, timezone, parser)
     Error(err) -> Error(err)
   }
 }
@@ -630,7 +629,7 @@ fn build_event(
 
 fn build_calendar(
   components: List(Component),
-  tz_override: String,
+  tz_override: Option(String),
   parser: Parser,
 ) -> Result(Calendar, ParseError) {
   let flat =
@@ -642,16 +641,14 @@ fn build_calendar(
       let version = extract_prop(cal_props, "VERSION")
       let prodid = extract_prop(cal_props, "PRODID")
 
-      let detected_tz = case tz_override == "" {
-        True ->
-          extract_prop(cal_props, "X-WR-TIMEZONE")
-          |> fn(tz) {
-            case tz == "" {
-              True -> "UTC"
-              False -> tz
-            }
+      let detected_tz = case tz_override {
+        Some("") | None -> {
+          case extract_prop(cal_props, "X-WR-TIMEZONE") {
+            "" -> "UTC"
+            tz -> tz
           }
-        False -> tz_override
+        }
+        Some(tz) -> tz
       }
 
       let events =
