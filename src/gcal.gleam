@@ -4,8 +4,8 @@ import gleam/result
 import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
-import gtz
 import splitter
+import tzif/database
 
 /// A parsed iCal calendar.
 ///
@@ -94,11 +94,16 @@ pub opaque type Parser {
     eq: splitter.Splitter,
     ws: splitter.Splitter,
     t_sep: splitter.Splitter,
+    db: database.TzDatabase,
   )
 }
 
 @internal
 pub fn new_parser() {
+  let db = case database.load_from_os() {
+    Ok(db) -> db
+    Error(_) -> database.new()
+  }
   Parser(
     lines: splitter.new(["\r\n", "\n"]),
     begin: splitter.new(["BEGIN:"]),
@@ -107,6 +112,7 @@ pub fn new_parser() {
     eq: splitter.new(["="]),
     ws: splitter.new([" ", "\t"]),
     t_sep: splitter.new(["T", "t"]),
+    db: db,
   )
 }
 
@@ -502,8 +508,9 @@ pub fn parse_datetime(
                 Ok(tz) -> {
                   let naive_ts =
                     timestamp.from_calendar(date, time, calendar.utc_offset)
-                  case gtz.calculate_offset(naive_ts, in: tz) {
-                    Ok(offset) -> timestamp.from_calendar(date, time, offset)
+                  case database.get_zone_parameters(naive_ts, tz, parser.db) {
+                    Ok(params) ->
+                      timestamp.from_calendar(date, time, params.offset)
                     Error(_) ->
                       timestamp.from_calendar(date, time, calendar.utc_offset)
                   }
@@ -519,9 +526,9 @@ pub fn parse_datetime(
                     False -> {
                       let naive_ts =
                         timestamp.from_calendar(date, time, calendar.utc_offset)
-                      case gtz.calculate_offset(naive_ts, in: tz_to_use) {
-                        Ok(offset) ->
-                          timestamp.from_calendar(date, time, offset)
+                      case database.get_zone_parameters(naive_ts, tz_to_use, parser.db) {
+                        Ok(params) ->
+                          timestamp.from_calendar(date, time, params.offset)
                         Error(_) ->
                           timestamp.from_calendar(
                             date,

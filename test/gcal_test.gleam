@@ -137,8 +137,8 @@ pub fn parse_property_with_params_in_raw_test() {
 
 pub fn parse_datetime_utc_test() {
   let prop = gcal.Property("DTSTART", [], "20230101T100000Z")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_567_200
 }
@@ -146,8 +146,8 @@ pub fn parse_datetime_utc_test() {
 pub fn parse_datetime_tzid_winter_test() {
   let param = gcal.Parameter("TZID", "Europe/Stockholm")
   let prop = gcal.Property("DTSTART", [param], "20230101T100000")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_563_600
 }
@@ -155,8 +155,8 @@ pub fn parse_datetime_tzid_winter_test() {
 pub fn parse_datetime_tzid_summer_test() {
   let param = gcal.Parameter("TZID", "Europe/Stockholm")
   let prop = gcal.Property("DTSTART", [param], "20230601T100000")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_685_606_400
 }
@@ -164,46 +164,46 @@ pub fn parse_datetime_tzid_summer_test() {
 pub fn parse_datetime_date_only_test() {
   let param = gcal.Parameter("VALUE", "DATE")
   let prop = gcal.Property("DTSTART", [param], "20230101")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_531_200
 }
 
 pub fn parse_datetime_floating_with_tz_test() {
   let prop = gcal.Property("DTSTART", [], "20230101T100000")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "Europe/Stockholm")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "Europe/Stockholm")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_563_600
 }
 
 pub fn parse_datetime_floating_as_utc_test() {
   let prop = gcal.Property("DTSTART", [], "20230101T100000")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_567_200
 }
 
 pub fn parse_datetime_invalid_test() {
   let prop = gcal.Property("DTSTART", [], "not-a-date")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
   assert ts == timestamp.unix_epoch
 }
 
 pub fn parse_datetime_empty_test() {
   let prop = gcal.Property("DTSTART", [], "")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
   assert ts == timestamp.unix_epoch
 }
 
 pub fn parse_datetime_lowercase_z_test() {
   let prop = gcal.Property("DTSTART", [], "20230101t100000z")
-  let splitters = make_test_splitters()
-  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_567_200
 }
@@ -324,6 +324,6 @@ pub fn get_property_and_parameter_combined_test() {
   let assert Error(Nil) = gcal.get_parameter(attendee, "EMAIL")
 }
 
-fn make_test_splitters() -> gcal.Parser {
+fn make_test_parser() -> gcal.Parser {
   gcal.new_parser()
 }
