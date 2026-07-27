@@ -1,6 +1,8 @@
 # panchang/ical
 
-An iCal (`.ics`) parser for Gleam. Parses VCALENDAR and VEVENT components with full support for folded lines, escaped text, property parameters, and timezone-aware datetime resolution.
+An iCal (`.ics`) parser for Gleam. Parses `VCALENDAR` and `VEVENT` components
+with support for folded lines, escaped text, property parameters,
+timezone-aware datetimes, and case-insensitive property names.
 
 ```sh
 gleam add panchang
@@ -35,10 +37,45 @@ pub fn main() {
 }
 ```
 
+## What it does
+
+- Parses `VCALENDAR` and `VEVENT` components.
+- Handles folded content lines (`\r\n ` / `\n ` continuations).
+- Unescapes text values (`\n`, `\N`, `\,`, `\;`, `\:`, `\\`).
+- Parses property parameters, including quoted values that contain `;`, `=`, or `:`.
+- Treats property, parameter, and component names as case-insensitive.
+- Resolves datetimes using the IANA timezone database via `tzif`.
+- Extracts common event fields: `uid`, `summary`, `description`, `location`,
+  `url`, `dtstart`, `dtend`, `created`, `last_modified`, `dtstamp`, `is_all_day`.
+- Preserves all original properties in `event.raw` for access to anything not
+  explicitly parsed.
+- Exposes a generic `parse_tree` function for full access to the component tree.
+
 ## API
 
 - `ical.new_parser(tz_db: TzDatabase) -> Parser` — create a parser with a timezone database.
 - `ical.parse(parser: Parser, input: String, timezone: Option(String)) -> Result(Calendar, ParseError)` — parse an iCal string. Pass `Some(tz)` to resolve floating times to a specific timezone, or `None` to use `X-WR-TIMEZONE` or UTC.
+- `ical.parse_tree(parser: Parser, input: String) -> Result(Component, ParseError)` — parse into a raw, nested component tree. Useful for accessing `VTODO`, `VALARM`, `VTIMEZONE`, custom properties, or components not modeled by `parse`.
+
+## Out of scope
+
+This library is a parser, not a full calendar runtime. It does **not**:
+
+- **Generate or write** iCal files.
+- **Expand recurring events** (`RRULE`, `RDATE`, `EXDATE`, `RECURRENCE-ID`).
+  `dtstart`/`dtend` are the original values; recurrence instances are not
+  computed.
+- **Model every iCal component** as a typed record. `VTODO`, `VJOURNAL`,
+  `VFREEBUSY`, `VTIMEZONE`, and `VALARM` are available as raw components via
+  `parse_tree`, but are not converted into dedicated Gleam types.
+- **Parse custom `VTIMEZONE` rules**. Datetimes are resolved using the IANA
+  timezone database loaded by `tzif`. Calendars that redefine timezone behavior
+  rather than referencing a standard tzid may not resolve correctly.
+- **Handle scheduling semantics** such as iTIP/iMIP invitations, attendee
+  responses, or conflict detection.
+- **Execute alarms**. `VALARM` components can be read via `parse_tree`, but the
+  library does not trigger or manage them.
+- **Fetch calendars from the network** or manage subscriptions.
 
 ## Development
 
