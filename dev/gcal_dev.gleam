@@ -8,11 +8,13 @@ import gleam/time/calendar
 import gleam/time/timestamp
 import gleam_community/ansi
 import simplifile
+import tzif/database
 
 pub type Error {
   InvalidArguments(String)
   CannotReadFile(simplifile.FileError)
-  CannotParseCalendar(gcal.Error)
+  CannotParseCalendar(gcal.ParseError)
+  CannotReadTimezoneDatabase
 }
 
 pub fn main() {
@@ -23,8 +25,15 @@ pub fn main() {
       use data <- result.try(
         simplifile.read(path) |> result.map_error(CannotReadFile),
       )
+      use tzdata <- result.try(
+        database.load_from_os()
+        |> result.replace_error(CannotReadTimezoneDatabase),
+      )
+
+      let parser = gcal.new_parser(tzdata)
+
       use calendar <- result.try(
-        gcal.parse(data) |> result.map_error(CannotParseCalendar),
+        gcal.parse(parser, data) |> result.map_error(CannotParseCalendar),
       )
       prettify_calendar(calendar)
     }
@@ -42,6 +51,7 @@ fn error_to_string(error: Error) {
     InvalidArguments(msg) -> msg
     CannotReadFile(error) -> "failed to read file: " <> string.inspect(error)
     CannotParseCalendar(gcal.ParseError(msg)) -> "cant parse calendar: " <> msg
+    CannotReadTimezoneDatabase -> "failed to initalize timezone database"
   }
 }
 

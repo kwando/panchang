@@ -3,14 +3,21 @@ import gleam/list
 import gleam/string
 import gleam/time/timestamp
 import gleeunit
+import global_value
+import tzif/database
 
 pub fn main() -> Nil {
   gleeunit.main()
 }
 
+fn gcal_parse(input: String) -> Result(gcal.Calendar, gcal.ParseError) {
+  gcal.new_parser(tzdb())
+  |> gcal.parse(input)
+}
+
 pub fn parse_simple_calendar_test() {
   let input = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
 
   assert calendar.version == "2.0"
   assert calendar.prodid == "-//Test//EN"
@@ -21,7 +28,7 @@ pub fn parse_simple_calendar_test() {
 pub fn parse_calendar_with_one_event_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Meeting\nUID:123@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
 
   let assert [event] = calendar.events
   assert event.summary == "Meeting"
@@ -31,7 +38,7 @@ pub fn parse_calendar_with_one_event_test() {
 pub fn parse_event_with_location_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Conference\nLOCATION:Stockholm\nUID:456@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
   assert event.summary == "Conference"
 
@@ -43,7 +50,7 @@ pub fn parse_event_with_location_test() {
 pub fn parse_event_with_parameters_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART;TZID=Europe/Stockholm:20230101T100000\nDTEND;TZID=Europe/Stockholm:20230101T110000\nSUMMARY:Test\nUID:789@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
 
   assert event.dtstart != timestamp.unix_epoch
@@ -60,7 +67,7 @@ pub fn parse_event_with_parameters_test() {
 pub fn parse_event_with_dtstart_dtend_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000Z\nDTEND:20230101T110000Z\nSUMMARY:Timed\nUID:timed@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
 
   let #(start_secs, _) =
@@ -71,7 +78,7 @@ pub fn parse_event_with_dtstart_dtend_test() {
 pub fn parse_multiple_events_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Event 1\nUID:1@test\nEND:VEVENT\nBEGIN:VEVENT\nSUMMARY:Event 2\nUID:2@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [e1, e2] = calendar.events
 
   assert e1.summary == "Event 1"
@@ -81,7 +88,7 @@ pub fn parse_multiple_events_test() {
 pub fn parse_folded_lines_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDESCRIPTION:This is a long des\n cription that spans\n  multiple lines\nUID:fold@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
 
   let assert Ok(desc) =
@@ -92,7 +99,7 @@ pub fn parse_folded_lines_test() {
 pub fn parse_escaped_text_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDESCRIPTION:Line 1\\nLine 2 with\\, comma\nUID:esc@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
 
   let assert Ok(desc) =
@@ -104,7 +111,7 @@ pub fn parse_escaped_text_test() {
 pub fn parse_empty_summary_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:\nUID:empty@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
   assert event.summary == ""
 }
@@ -112,7 +119,7 @@ pub fn parse_empty_summary_test() {
 pub fn parse_real_ical_file_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//caldav.icloud.com//CALDAVJ 2626B756//EN\nX-WR-CALNAME:Privat\nBEGIN:VEVENT\nCREATED:20171104T221935Z\nDTEND;TZID=Europe/Stockholm:20171128T203000\nDTSTAMP:20171125T133010Z\nDTSTART;TZID=Europe/Stockholm:20171128T193000\nLOCATION:Malmö Live\nSUMMARY:Anders och Måns\nUID:001E66D2-7DF8-40A8-B0BC-EBC4E3F9C2FD\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   assert calendar.version == "2.0"
   assert calendar.prodid == "-//caldav.icloud.com//CALDAVJ 2626B756//EN"
   let assert [event] = calendar.events
@@ -123,7 +130,7 @@ pub fn parse_real_ical_file_test() {
 pub fn parse_property_with_params_in_raw_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nLOCATION;FMTTYPE=text/html:Conference Room\nSUMMARY:Test\nUID:params@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
 
   let assert Ok(loc_prop) =
@@ -211,7 +218,7 @@ pub fn parse_datetime_lowercase_z_test() {
 pub fn parse_calendar_with_x_wr_timezone_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nX-WR-TIMEZONE:Europe/Stockholm\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
 
   assert calendar.timezone == "Europe/Stockholm"
 
@@ -223,7 +230,8 @@ pub fn parse_calendar_with_x_wr_timezone_test() {
 pub fn parse_with_timezone_overrides_x_wr_timezone_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nX-WR-TIMEZONE:Europe/Stockholm\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse_with_timezone(input, "America/New_York")
+  let assert Ok(calendar) =
+    gcal.parse_with_timezone(gcal.new_parser(tzdb()), input, "America/New_York")
 
   assert calendar.timezone == "America/New_York"
 
@@ -235,7 +243,7 @@ pub fn parse_with_timezone_overrides_x_wr_timezone_test() {
 pub fn event_is_all_day_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART;VALUE=DATE:20230101\nDTEND;VALUE=DATE:20230102\nSUMMARY:All day\nUID:allday@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
   assert event.is_all_day == True
 }
@@ -243,7 +251,7 @@ pub fn event_is_all_day_test() {
 pub fn event_not_all_day_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000Z\nDTEND:20230101T110000Z\nSUMMARY:Timed\nUID:timed@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
   assert event.is_all_day == False
 }
@@ -251,7 +259,7 @@ pub fn event_not_all_day_test() {
 pub fn event_not_all_day_with_tzid_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART;TZID=Europe/Stockholm:20230101T100000\nDTEND;TZID=Europe/Stockholm:20230101T110000\nSUMMARY:Timed\nUID:timed@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
   assert event.is_all_day == False
 }
@@ -309,7 +317,7 @@ pub fn get_parameter_test() {
 pub fn get_property_and_parameter_combined_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nATTENDEE;CN=John;RSVP=TRUE:mailto:john@example.com\nSUMMARY:Meeting\nUID:123@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
+  let assert Ok(calendar) = gcal_parse(input)
   let assert [event] = calendar.events
 
   let assert Ok(attendee) = gcal.get_property(event, "ATTENDEE")
@@ -325,5 +333,12 @@ pub fn get_property_and_parameter_combined_test() {
 }
 
 fn make_test_parser() -> gcal.Parser {
-  gcal.new_parser()
+  gcal.new_parser(tzdb())
+}
+
+fn tzdb() {
+  global_value.create_with_unique_name("tzdb", fn() {
+    let assert Ok(tz_db) = database.load_from_os()
+    tz_db
+  })
 }

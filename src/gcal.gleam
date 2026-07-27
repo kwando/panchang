@@ -74,7 +74,7 @@ pub type Parameter {
 }
 
 /// An error that can occur during parsing.
-pub type Error {
+pub type ParseError {
   /// The input could not be parsed. The string contains a description of
   /// what went wrong.
   ParseError(String)
@@ -84,7 +84,6 @@ type Component {
   Component(kind: String, properties: List(Property), children: List(Component))
 }
 
-@internal
 pub opaque type Parser {
   Parser(
     lines: splitter.Splitter,
@@ -98,12 +97,7 @@ pub opaque type Parser {
   )
 }
 
-@internal
-pub fn new_parser() {
-  let db = case database.load_from_os() {
-    Ok(db) -> db
-    Error(_) -> database.new()
-  }
+pub fn new_parser(tz_db: database.TzDatabase) {
   Parser(
     lines: splitter.new(["\r\n", "\n"]),
     begin: splitter.new(["BEGIN:"]),
@@ -112,7 +106,7 @@ pub fn new_parser() {
     eq: splitter.new(["="]),
     ws: splitter.new([" ", "\t"]),
     t_sep: splitter.new(["T", "t"]),
-    db: db,
+    db: tz_db,
   )
 }
 
@@ -126,8 +120,8 @@ pub fn new_parser() {
 /// calendar.events
 /// ```
 ///
-pub fn parse(input: String) -> Result(Calendar, Error) {
-  parse_with_timezone(input, "")
+pub fn parse(parser: Parser, input: String) -> Result(Calendar, ParseError) {
+  parse_with_timezone(parser, input, "")
 }
 
 /// Parse an iCal string into a `Calendar`, using the given timezone for
@@ -146,11 +140,10 @@ pub fn parse(input: String) -> Result(Calendar, Error) {
 /// ```
 ///
 pub fn parse_with_timezone(
+  parser: Parser,
   input: String,
   tz: String,
-) -> Result(Calendar, Error) {
-  let parser = new_parser()
-
+) -> Result(Calendar, ParseError) {
   let lines = unfold_lines(input, parser)
   let non_empty = list.filter(lines, fn(line) { line != "" })
 
@@ -205,7 +198,7 @@ fn parse_all_components(
   lines: List(String),
   acc: List(Component),
   parser: Parser,
-) -> Result(List(Component), Error) {
+) -> Result(List(Component), ParseError) {
   case lines {
     [] -> Ok(list.reverse(acc))
     [line, ..rest] ->
@@ -227,7 +220,7 @@ fn parse_component(
   props: List(Property),
   children: List(Component),
   parser: Parser,
-) -> Result(#(Component, List(String)), Error) {
+) -> Result(#(Component, List(String)), ParseError) {
   let end_marker = "END:" <> kind
   case lines {
     [] -> Error(ParseError("Unexpected end of input, missing END:" <> kind))
@@ -263,7 +256,10 @@ fn parse_component(
   }
 }
 
-fn parse_property(line: String, parser: Parser) -> Result(Property, Error) {
+fn parse_property(
+  line: String,
+  parser: Parser,
+) -> Result(Property, ParseError) {
   case splitter.split(parser.colon, line) {
     #(name_part, ":", value) -> {
       let #(name, params) = parse_name_and_params(name_part, parser)
@@ -310,7 +306,7 @@ fn do_parse_params(
 fn parse_single_param(
   param: String,
   parser: Parser,
-) -> Result(Parameter, Error) {
+) -> Result(Parameter, ParseError) {
   case splitter.split(parser.eq, param) {
     #(name, "=", value) -> Ok(Parameter(name, value))
     _ -> Error(ParseError("Invalid parameter: " <> param))
@@ -368,21 +364,21 @@ fn has_param_value_date(params: List(Parameter)) -> Bool {
   list.any(params, fn(p) { p.name == "VALUE" && p.value == "DATE" })
 }
 
-fn get_tzid(params: List(Parameter)) -> Result(String, Error) {
+fn get_tzid(params: List(Parameter)) -> Result(String, ParseError) {
   case list.find(params, fn(p) { p.name == "TZID" }) {
     Ok(p) -> Ok(p.value)
     Error(_) -> Error(ParseError("No TZID parameter"))
   }
 }
 
-fn parse_int(s: String) -> Result(Int, Error) {
+fn parse_int(s: String) -> Result(Int, ParseError) {
   case int.parse(s) {
     Ok(n) -> Ok(n)
     Error(_) -> Error(ParseError("Not an integer: " <> s))
   }
 }
 
-fn parse_date_only(value: String) -> Result(timestamp.Timestamp, Error) {
+fn parse_date_only(value: String) -> Result(timestamp.Timestamp, ParseError) {
   case string.length(value) {
     8 -> {
       let year = parse_int(string.slice(value, 0, 4))
@@ -417,7 +413,7 @@ fn parse_date_only(value: String) -> Result(timestamp.Timestamp, Error) {
 fn parse_datetime_value(
   value: String,
   parser: Parser,
-) -> Result(#(calendar.Date, calendar.TimeOfDay, Bool), Error) {
+) -> Result(#(calendar.Date, calendar.TimeOfDay, Bool), ParseError) {
   case splitter.split(parser.t_sep, value) {
     #(date_str, sep, time_str) ->
       case sep == "T" || sep == "t" {
@@ -526,7 +522,13 @@ pub fn parse_datetime(
                     False -> {
                       let naive_ts =
                         timestamp.from_calendar(date, time, calendar.utc_offset)
-                      case database.get_zone_parameters(naive_ts, tz_to_use, parser.db) {
+                      case
+                        database.get_zone_parameters(
+                          naive_ts,
+                          tz_to_use,
+                          parser.db,
+                        )
+                      {
                         Ok(params) ->
                           timestamp.from_calendar(date, time, params.offset)
                         Error(_) ->
@@ -580,7 +582,7 @@ fn build_calendar(
   components: List(Component),
   tz_override: String,
   parser: Parser,
-) -> Result(Calendar, Error) {
+) -> Result(Calendar, ParseError) {
   let flat =
     components
     |> list.map(fn(c) { #(c.kind, c.properties, c.children) })
