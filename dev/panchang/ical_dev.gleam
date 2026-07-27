@@ -1,5 +1,4 @@
 import argv
-import panchang/ical
 import gleam/io
 import gleam/list
 import gleam/option.{None}
@@ -8,6 +7,7 @@ import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
 import gleam_community/ansi
+import panchang/ical
 import simplifile
 import tzif/database
 

@@ -1,9 +1,9 @@
-import panchang/ical
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/string
 import gleam/time/timestamp
 import global_value
+import panchang/ical
 import tzif/database
 
 fn ical_parse(input: String) -> Result(ical.Calendar, ical.ParseError) {

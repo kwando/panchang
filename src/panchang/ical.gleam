@@ -157,6 +157,8 @@ pub fn parse(
   }
 }
 
+// iCal content lines can be folded by starting a continuation line with a
+// space or tab. Unfold first so every logical property line is a single string.
 fn unfold_lines(input: String, parser: Parser) -> List(String) {
   do_unfold_lines(input, parser, [])
   |> list.reverse
@@ -198,6 +200,8 @@ fn do_unfold_lines(
   }
 }
 
+// Component markers (BEGIN:/END:) are case-insensitive per RFC 5545, so we
+// compare the uppercased prefix and preserve the original case for the name.
 fn parse_component_marker(line: String, prefix: String) -> Result(String, Nil) {
   case string.starts_with(string.uppercase(line), prefix) {
     True -> {
@@ -235,6 +239,9 @@ fn parse_all_components(
   }
 }
 
+// Recursively consume a component's body until its matching END: line.
+// Components can nest (e.g. VCALENDAR -> VEVENT), so child components are
+// parsed before returning to the parent.
 fn parse_component(
   kind: String,
   lines: List(String),
@@ -274,6 +281,9 @@ fn parse_component(
   }
 }
 
+// RFC 5545 allows quoted parameter values to contain ;, = and :, so we cannot
+// split property lines on those characters blindly. Track quote state and only
+// split on a separator that is outside a quoted string.
 fn split_first_unquoted(
   line: String,
   sep: String,
@@ -305,7 +315,8 @@ fn do_split_first_unquoted(
               let after = string.concat(rest)
               Ok(#(before, after))
             }
-            _ -> do_split_first_unquoted(rest, sep, in_quote, False, [char, ..acc])
+            _ ->
+              do_split_first_unquoted(rest, sep, in_quote, False, [char, ..acc])
           }
         }
       }
@@ -313,6 +324,8 @@ fn do_split_first_unquoted(
   }
 }
 
+// Quoted parameter values must have their surrounding quotes removed, and only
+// \" and \\ are valid escapes inside quoted strings (unlike text values).
 fn unescape_param_value(value: String) -> String {
   case string.starts_with(value, "\"") && string.ends_with(value, "\"") {
     False -> value
@@ -325,7 +338,10 @@ fn unescape_param_value(value: String) -> String {
   }
 }
 
-fn do_unescape_param_text(chars: List(String), acc: List(String)) -> List(String) {
+fn do_unescape_param_text(
+  chars: List(String),
+  acc: List(String),
+) -> List(String) {
   case chars {
     [] -> acc
     ["\\", "\"", ..rest] -> do_unescape_param_text(rest, ["\"", ..acc])
@@ -355,10 +371,7 @@ fn parse_params(params_str: String) -> List(Parameter) {
   do_parse_params(params_str, [])
 }
 
-fn do_parse_params(
-  input: String,
-  acc: List(Parameter),
-) -> List(Parameter) {
+fn do_parse_params(input: String, acc: List(Parameter)) -> List(Parameter) {
   case split_first_unquoted(input, ";") {
     Ok(#(param, remaining)) ->
       case parse_single_param(param) {
@@ -381,6 +394,9 @@ fn parse_single_param(param: String) -> Result(Parameter, ParseError) {
   }
 }
 
+// Single-pass byte processing avoids creating intermediate strings for every
+// escape sequence and correctly handles \\ before other escapes (e.g. \\n must
+// stay as a literal backslash + n, not become a newline).
 fn unescape_text(text: String) -> String {
   case
     text
@@ -426,6 +442,7 @@ pub fn get_property(event: Event, name: String) -> Result(Property, Nil) {
   list.find(event.raw, fn(prop) { name_eq(prop.name, name) })
 }
 
+// Property, parameter and component names are case-insensitive per RFC 5545.
 fn name_eq(a: String, b: String) -> Bool {
   string.uppercase(a) == string.uppercase(b)
 }
@@ -476,6 +493,8 @@ fn parse_int(s: String) -> Result(Int, ParseError) {
   }
 }
 
+// Date-only values (VALUE=DATE) have no time component; treat them as
+// midnight UTC so they still produce a valid timestamp.
 fn parse_date_only(value: String) -> Result(timestamp.Timestamp, ParseError) {
   case string.length(value) {
     8 -> {
@@ -508,6 +527,8 @@ fn parse_date_only(value: String) -> Result(timestamp.Timestamp, ParseError) {
   }
 }
 
+// iCal datetime values are fixed-format YYYYMMDDTHHMMSS, so we parse the
+// bytes directly instead of using a general date parser.
 fn parse_datetime_value(
   _parser: Parser,
   value: String,
@@ -601,6 +622,9 @@ fn parse_datetime_value(
 ///
 /// Returns `timestamp.unix_epoch` for empty or unparseable values.
 ///
+/// Explicit `TZID` parameters take precedence over the fallback timezone, which
+/// is used for floating datetimes. The calendar's `X-WR-TIMEZONE` is handled by
+/// the caller before this function is invoked.
 @internal
 pub fn parse_datetime(
   prop: Property,
@@ -693,6 +717,8 @@ fn build_event(
   Event(uid, summary, dtstart, dtend, is_all_day, props)
 }
 
+// Flatten the parsed component tree into a Calendar. When the caller does not
+// supply a timezone, fall back to the calendar's X-WR-TIMEZONE property.
 fn build_calendar(
   components: List(Component),
   tz_override: Option(String),
