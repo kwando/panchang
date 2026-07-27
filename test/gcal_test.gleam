@@ -109,6 +109,40 @@ pub fn parse_escaped_text_test() {
   assert string.contains(desc.value, ",")
 }
 
+pub fn parse_escaped_capital_newline_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDESCRIPTION:Line 1\\NLine 2\nUID:esc-capital@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(desc) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "DESCRIPTION" })
+  assert string.contains(desc.value, "\n")
+}
+
+pub fn parse_escaped_colon_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDESCRIPTION:Time\\: 10\nUID:esc-colon@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(desc) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "DESCRIPTION" })
+  assert string.contains(desc.value, "Time: 10")
+}
+
+pub fn parse_escaped_backslash_before_newline_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDESCRIPTION:literal backslash and n\\\\n not a newline\nUID:esc-backslash-n@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(desc) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "DESCRIPTION" })
+  assert string.contains(desc.value, "\\n")
+  assert False == string.contains(desc.value, "literal backslash and n\n")
+}
+
 pub fn parse_empty_summary_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:\nUID:empty@test\nEND:VEVENT\nEND:VCALENDAR"

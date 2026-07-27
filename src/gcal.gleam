@@ -348,11 +348,35 @@ fn parse_single_param(
 }
 
 fn unescape_text(text: String) -> String {
-  text
-  |> string.replace("\\n", "\n")
-  |> string.replace("\\,", ",")
-  |> string.replace("\\;", ";")
-  |> string.replace("\\\\", "\\")
+  case
+    text
+    |> bit_array.from_string
+    |> do_unescape_text(<<>>)
+    |> bit_array.to_string
+  {
+    Ok(result) -> result
+    Error(_) -> text
+  }
+}
+
+fn do_unescape_text(input: BitArray, acc: BitArray) -> BitArray {
+  case input {
+    <<>> -> acc
+    <<"\\":utf8, "n":utf8, rest:bytes>> ->
+      do_unescape_text(rest, <<acc:bits, "\n":utf8>>)
+    <<"\\":utf8, "N":utf8, rest:bytes>> ->
+      do_unescape_text(rest, <<acc:bits, "\n":utf8>>)
+    <<"\\":utf8, ",":utf8, rest:bytes>> ->
+      do_unescape_text(rest, <<acc:bits, ",":utf8>>)
+    <<"\\":utf8, ";":utf8, rest:bytes>> ->
+      do_unescape_text(rest, <<acc:bits, ";":utf8>>)
+    <<"\\":utf8, ":":utf8, rest:bytes>> ->
+      do_unescape_text(rest, <<acc:bits, ":":utf8>>)
+    <<"\\":utf8, "\\":utf8, rest:bytes>> ->
+      do_unescape_text(rest, <<acc:bits, "\\":utf8>>)
+    <<c:8, rest:bytes>> -> do_unescape_text(rest, <<acc:bits, c:8>>)
+    _ -> <<acc:bits, input:bits>>
+  }
 }
 
 /// Find a property by name in an event's raw properties.
