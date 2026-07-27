@@ -77,35 +77,35 @@ pub fn parse_with_timezone(
   input: String,
   tz: String,
 ) -> Result(Calendar, Error) {
-  let splitters = new_parser()
+  let parser = new_parser()
 
-  let lines = unfold_lines(input, splitters)
+  let lines = unfold_lines(input, parser)
   let non_empty = list.filter(lines, fn(line) { line != "" })
 
-  case parse_all_components(non_empty, [], splitters) {
-    Ok(components) -> build_calendar(components, tz, splitters)
+  case parse_all_components(non_empty, [], parser) {
+    Ok(components) -> build_calendar(components, tz, parser)
     Error(err) -> Error(err)
   }
 }
 
-fn unfold_lines(input: String, splitters: Parser) -> List(String) {
-  do_unfold_lines(input, splitters, [])
+fn unfold_lines(input: String, parser: Parser) -> List(String) {
+  do_unfold_lines(input, parser, [])
   |> list.reverse
 }
 
 fn do_unfold_lines(
   input: String,
-  splitters: Parser,
+  parser: Parser,
   acc: List(String),
 ) -> List(String) {
-  case splitter.split(splitters.lines, input) {
+  case splitter.split(parser.lines, input) {
     #(line, "", "") ->
       case acc {
         [] -> [line]
         [prev, ..rest] ->
           case string.starts_with(line, " ") || string.starts_with(line, "\t") {
             True -> {
-              let #(_, remaining) = splitter.split_after(splitters.ws, line)
+              let #(_, remaining) = splitter.split_after(parser.ws, line)
               [prev <> remaining, ..rest]
             }
             False -> [line, prev, ..rest]
@@ -113,18 +113,17 @@ fn do_unfold_lines(
       }
     #(line, _, remaining) ->
       case acc {
-        [] -> do_unfold_lines(remaining, splitters, [line])
+        [] -> do_unfold_lines(remaining, parser, [line])
         [prev, ..rest] ->
           case string.starts_with(line, " ") || string.starts_with(line, "\t") {
             True -> {
-              let #(_, remaining_line) =
-                splitter.split_after(splitters.ws, line)
-              do_unfold_lines(remaining, splitters, [
+              let #(_, remaining_line) = splitter.split_after(parser.ws, line)
+              do_unfold_lines(remaining, parser, [
                 prev <> remaining_line,
                 ..rest
               ])
             }
-            False -> do_unfold_lines(remaining, splitters, [line, prev, ..rest])
+            False -> do_unfold_lines(remaining, parser, [line, prev, ..rest])
           }
       }
   }
@@ -133,16 +132,16 @@ fn do_unfold_lines(
 fn parse_all_components(
   lines: List(String),
   acc: List(Component),
-  splitters: Parser,
+  parser: Parser,
 ) -> Result(List(Component), Error) {
   case lines {
     [] -> Ok(list.reverse(acc))
     [line, ..rest] ->
-      case splitter.split(splitters.begin, line) {
+      case splitter.split(parser.begin, line) {
         #("", "BEGIN:", kind) ->
-          case parse_component(kind, rest, [], [], splitters) {
+          case parse_component(kind, rest, [], [], parser) {
             Ok(#(component, remaining)) ->
-              parse_all_components(remaining, [component, ..acc], splitters)
+              parse_all_components(remaining, [component, ..acc], parser)
             Error(err) -> Error(err)
           }
         _ -> Error(ParseError("Unexpected line: " <> line))
@@ -155,7 +154,7 @@ fn parse_component(
   lines: List(String),
   props: List(Property),
   children: List(Component),
-  splitters: Parser,
+  parser: Parser,
 ) -> Result(#(Component, List(String)), Error) {
   let end_marker = "END:" <> kind
   case lines {
@@ -168,29 +167,23 @@ fn parse_component(
             rest,
           ))
         False ->
-          case splitter.split(splitters.begin, line) {
+          case splitter.split(parser.begin, line) {
             #("", "BEGIN:", subkind) ->
-              case parse_component(subkind, rest, [], [], splitters) {
+              case parse_component(subkind, rest, [], [], parser) {
                 Ok(#(child, remaining)) ->
                   parse_component(
                     kind,
                     remaining,
                     props,
                     [child, ..children],
-                    splitters,
+                    parser,
                   )
                 Error(err) -> Error(err)
               }
             _ ->
-              case parse_property(line, splitters) {
+              case parse_property(line, parser) {
                 Ok(prop) ->
-                  parse_component(
-                    kind,
-                    rest,
-                    [prop, ..props],
-                    children,
-                    splitters,
-                  )
+                  parse_component(kind, rest, [prop, ..props], children, parser)
                 Error(err) -> Error(err)
               }
           }
@@ -198,10 +191,10 @@ fn parse_component(
   }
 }
 
-fn parse_property(line: String, splitters: Parser) -> Result(Property, Error) {
-  case splitter.split(splitters.colon, line) {
+fn parse_property(line: String, parser: Parser) -> Result(Property, Error) {
+  case splitter.split(parser.colon, line) {
     #(name_part, ":", value) -> {
-      let #(name, params) = parse_name_and_params(name_part, splitters)
+      let #(name, params) = parse_name_and_params(name_part, parser)
       Ok(Property(name, params, unescape_text(value)))
     }
     _ -> Error(ParseError("Invalid property line: " <> line))
@@ -210,31 +203,31 @@ fn parse_property(line: String, splitters: Parser) -> Result(Property, Error) {
 
 fn parse_name_and_params(
   part: String,
-  splitters: Parser,
+  parser: Parser,
 ) -> #(String, List(Parameter)) {
-  case splitter.split(splitters.semi, part) {
-    #(name, ";", params_str) -> #(name, parse_params(params_str, splitters))
+  case splitter.split(parser.semi, part) {
+    #(name, ";", params_str) -> #(name, parse_params(params_str, parser))
     _ -> #(part, [])
   }
 }
 
-fn parse_params(params_str: String, splitters: Parser) -> List(Parameter) {
-  do_parse_params(params_str, [], splitters)
+fn parse_params(params_str: String, parser: Parser) -> List(Parameter) {
+  do_parse_params(params_str, [], parser)
 }
 
 fn do_parse_params(
   input: String,
   acc: List(Parameter),
-  splitters: Parser,
+  parser: Parser,
 ) -> List(Parameter) {
-  case splitter.split(splitters.semi, input) {
+  case splitter.split(parser.semi, input) {
     #(param, ";", remaining) ->
-      case parse_single_param(param, splitters) {
-        Ok(p) -> do_parse_params(remaining, [p, ..acc], splitters)
-        Error(_) -> do_parse_params(remaining, acc, splitters)
+      case parse_single_param(param, parser) {
+        Ok(p) -> do_parse_params(remaining, [p, ..acc], parser)
+        Error(_) -> do_parse_params(remaining, acc, parser)
       }
     #(param, "", "") ->
-      case parse_single_param(param, splitters) {
+      case parse_single_param(param, parser) {
         Ok(p) -> list.reverse([p, ..acc])
         Error(_) -> list.reverse(acc)
       }
@@ -244,9 +237,9 @@ fn do_parse_params(
 
 fn parse_single_param(
   param: String,
-  splitters: Parser,
+  parser: Parser,
 ) -> Result(Parameter, Error) {
-  case splitter.split(splitters.eq, param) {
+  case splitter.split(parser.eq, param) {
     #(name, "=", value) -> Ok(Parameter(name, value))
     _ -> Error(ParseError("Invalid parameter: " <> param))
   }
@@ -332,9 +325,9 @@ fn parse_date_only(value: String) -> Result(timestamp.Timestamp, Error) {
 
 fn parse_datetime_value(
   value: String,
-  splitters: Parser,
+  parser: Parser,
 ) -> Result(#(calendar.Date, calendar.TimeOfDay, Bool), Error) {
-  case splitter.split(splitters.t_sep, value) {
+  case splitter.split(parser.t_sep, value) {
     #(date_str, sep, time_str) ->
       case sep == "T" || sep == "t" {
         True -> {
@@ -378,7 +371,7 @@ fn parse_datetime_value(
 @internal
 pub fn parse_datetime(
   prop: Property,
-  splitters: Parser,
+  parser: Parser,
   fallback_tz: String,
 ) -> timestamp.Timestamp {
   let value = prop.value
@@ -403,7 +396,7 @@ pub fn parse_datetime(
             False -> value
           }
 
-          case parse_datetime_value(clean_value, splitters) {
+          case parse_datetime_value(clean_value, parser) {
             Ok(#(date, time, _)) -> {
               let tzid = case is_utc {
                 True -> Error(ParseError("UTC"))
@@ -456,7 +449,7 @@ pub fn parse_datetime(
 
 fn build_event(
   props: List(Property),
-  splitters: Parser,
+  parser: Parser,
   fallback_tz: String,
 ) -> Event {
   let uid = extract_prop(props, "UID")
@@ -471,11 +464,11 @@ fn build_event(
 
   let dtstart =
     dtstart_prop
-    |> result.map(fn(p) { parse_datetime(p, splitters, fallback_tz) })
+    |> result.map(fn(p) { parse_datetime(p, parser, fallback_tz) })
     |> result.unwrap(timestamp.unix_epoch)
   let dtend =
     dtend_prop
-    |> result.map(fn(p) { parse_datetime(p, splitters, fallback_tz) })
+    |> result.map(fn(p) { parse_datetime(p, parser, fallback_tz) })
     |> result.unwrap(timestamp.unix_epoch)
 
   Event(uid, summary, dtstart, dtend, is_all_day, props)
@@ -484,7 +477,7 @@ fn build_event(
 fn build_calendar(
   components: List(Component),
   tz_override: String,
-  splitters: Parser,
+  parser: Parser,
 ) -> Result(Calendar, Error) {
   let flat =
     components
@@ -511,7 +504,7 @@ fn build_calendar(
         cal_children
         |> list.filter_map(fn(c) {
           case c.kind {
-            "VEVENT" -> Ok(build_event(c.properties, splitters, detected_tz))
+            "VEVENT" -> Ok(build_event(c.properties, parser, detected_tz))
             _ -> Error(Nil)
           }
         })
