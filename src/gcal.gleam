@@ -422,8 +422,8 @@ fn parse_date_only(value: String) -> Result(timestamp.Timestamp, ParseError) {
 }
 
 fn parse_datetime_value(
-  value: String,
   parser: Parser,
+  value: String,
 ) -> Result(#(calendar.Date, calendar.TimeOfDay, Bool), ParseError) {
   case splitter.split(parser.t_sep, value) {
     #(date_str, sep, time_str) ->
@@ -504,7 +504,7 @@ pub fn parse_datetime(
             False -> value
           }
 
-          case parse_datetime_value(clean_value, parser) {
+          case parse_datetime_value(parser, clean_value) {
             Ok(#(date, time, _)) -> {
               let tzid = case is_utc {
                 True -> Error(ParseError("UTC"))
