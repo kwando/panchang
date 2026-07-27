@@ -94,9 +94,6 @@ type Component {
 pub opaque type Parser {
   Parser(
     lines: splitter.Splitter,
-    colon: splitter.Splitter,
-    semi: splitter.Splitter,
-    eq: splitter.Splitter,
     ws: splitter.Splitter,
     t_sep: splitter.Splitter,
     db: database.TzDatabase,
@@ -116,9 +113,6 @@ pub opaque type Parser {
 pub fn new_parser(tz_db: database.TzDatabase) {
   Parser(
     lines: splitter.new(["\r\n", "\n"]),
-    colon: splitter.new([":"]),
-    semi: splitter.new([";"]),
-    eq: splitter.new(["="]),
     ws: splitter.new([" ", "\t"]),
     t_sep: splitter.new(["T", "t"]),
     db: tz_db,
@@ -157,7 +151,7 @@ pub fn parse(
   let lines = unfold_lines(input, parser)
   let non_empty = list.filter(lines, fn(line) { line != "" })
 
-  case parse_all_components(non_empty, [], parser) {
+  case parse_all_components(non_empty, []) {
     Ok(components) -> build_calendar(components, timezone, parser)
     Error(err) -> Error(err)
   }
@@ -225,16 +219,15 @@ fn parse_end_component(line: String) -> Result(String, Nil) {
 fn parse_all_components(
   lines: List(String),
   acc: List(Component),
-  parser: Parser,
 ) -> Result(List(Component), ParseError) {
   case lines {
     [] -> Ok(list.reverse(acc))
     [line, ..rest] ->
       case parse_begin_component(line) {
         Ok(kind) ->
-          case parse_component(string.uppercase(kind), rest, [], [], parser) {
+          case parse_component(string.uppercase(kind), rest, [], []) {
             Ok(#(component, remaining)) ->
-              parse_all_components(remaining, [component, ..acc], parser)
+              parse_all_components(remaining, [component, ..acc])
             Error(err) -> Error(err)
           }
         Error(_) -> Error(ParseError("Unexpected line: " <> line))
@@ -247,7 +240,6 @@ fn parse_component(
   lines: List(String),
   props: List(Property),
   children: List(Component),
-  parser: Parser,
 ) -> Result(#(Component, List(String)), ParseError) {
   let kind = string.uppercase(kind)
   case lines {
@@ -266,23 +258,15 @@ fn parse_component(
         Error(_) ->
           case parse_begin_component(line) {
             Ok(subkind) ->
-              case
-                parse_component(string.uppercase(subkind), rest, [], [], parser)
-              {
+              case parse_component(string.uppercase(subkind), rest, [], []) {
                 Ok(#(child, remaining)) ->
-                  parse_component(
-                    kind,
-                    remaining,
-                    props,
-                    [child, ..children],
-                    parser,
-                  )
+                  parse_component(kind, remaining, props, [child, ..children])
                 Error(err) -> Error(err)
               }
             Error(_) ->
-              case parse_property(line, parser) {
+              case parse_property(line) {
                 Ok(prop) ->
-                  parse_component(kind, rest, [prop, ..props], children, parser)
+                  parse_component(kind, rest, [prop, ..props], children)
                 Error(err) -> Error(err)
               }
           }
@@ -290,60 +274,110 @@ fn parse_component(
   }
 }
 
-fn parse_property(
+fn split_first_unquoted(
   line: String,
-  parser: Parser,
-) -> Result(Property, ParseError) {
-  case splitter.split(parser.colon, line) {
-    #(name_part, ":", value) -> {
-      let #(name, params) = parse_name_and_params(name_part, parser)
+  sep: String,
+) -> Result(#(String, String), Nil) {
+  do_split_first_unquoted(string.to_graphemes(line), sep, False, False, [])
+}
+
+fn do_split_first_unquoted(
+  chars: List(String),
+  sep: String,
+  in_quote: Bool,
+  escaped: Bool,
+  acc: List(String),
+) -> Result(#(String, String), Nil) {
+  case chars {
+    [] -> Error(Nil)
+    [char, ..rest] -> {
+      case escaped {
+        True ->
+          do_split_first_unquoted(rest, sep, in_quote, False, [char, ..acc])
+        False -> {
+          case char {
+            "\"" ->
+              do_split_first_unquoted(rest, sep, !in_quote, False, [char, ..acc])
+            "\\" if in_quote ->
+              do_split_first_unquoted(rest, sep, in_quote, True, [char, ..acc])
+            _ if char == sep && !in_quote -> {
+              let before = list.reverse(acc) |> string.concat
+              let after = string.concat(rest)
+              Ok(#(before, after))
+            }
+            _ -> do_split_first_unquoted(rest, sep, in_quote, False, [char, ..acc])
+          }
+        }
+      }
+    }
+  }
+}
+
+fn unescape_param_value(value: String) -> String {
+  case string.starts_with(value, "\"") && string.ends_with(value, "\"") {
+    False -> value
+    True -> {
+      let inner = string.slice(value, 1, string.length(value) - 2)
+      do_unescape_param_text(string.to_graphemes(inner), [])
+      |> list.reverse
+      |> string.concat
+    }
+  }
+}
+
+fn do_unescape_param_text(chars: List(String), acc: List(String)) -> List(String) {
+  case chars {
+    [] -> acc
+    ["\\", "\"", ..rest] -> do_unescape_param_text(rest, ["\"", ..acc])
+    ["\\", "\\", ..rest] -> do_unescape_param_text(rest, ["\\", ..acc])
+    [c, ..rest] -> do_unescape_param_text(rest, [c, ..acc])
+  }
+}
+
+fn parse_property(line: String) -> Result(Property, ParseError) {
+  case split_first_unquoted(line, ":") {
+    Ok(#(name_part, value)) -> {
+      let #(name, params) = parse_name_and_params(name_part)
       Ok(Property(string.uppercase(name), params, unescape_text(value)))
     }
-    _ -> Error(ParseError("Invalid property line: " <> line))
+    Error(_) -> Error(ParseError("Invalid property line: " <> line))
   }
 }
 
-fn parse_name_and_params(
-  part: String,
-  parser: Parser,
-) -> #(String, List(Parameter)) {
-  case splitter.split(parser.semi, part) {
-    #(name, ";", params_str) -> #(name, parse_params(params_str, parser))
-    _ -> #(part, [])
+fn parse_name_and_params(part: String) -> #(String, List(Parameter)) {
+  case split_first_unquoted(part, ";") {
+    Ok(#(name, params_str)) -> #(name, parse_params(params_str))
+    Error(_) -> #(part, [])
   }
 }
 
-fn parse_params(params_str: String, parser: Parser) -> List(Parameter) {
-  do_parse_params(params_str, [], parser)
+fn parse_params(params_str: String) -> List(Parameter) {
+  do_parse_params(params_str, [])
 }
 
 fn do_parse_params(
   input: String,
   acc: List(Parameter),
-  parser: Parser,
 ) -> List(Parameter) {
-  case splitter.split(parser.semi, input) {
-    #(param, ";", remaining) ->
-      case parse_single_param(param, parser) {
-        Ok(p) -> do_parse_params(remaining, [p, ..acc], parser)
-        Error(_) -> do_parse_params(remaining, acc, parser)
+  case split_first_unquoted(input, ";") {
+    Ok(#(param, remaining)) ->
+      case parse_single_param(param) {
+        Ok(p) -> do_parse_params(remaining, [p, ..acc])
+        Error(_) -> do_parse_params(remaining, acc)
       }
-    #(param, "", "") ->
-      case parse_single_param(param, parser) {
+    Error(_) ->
+      case parse_single_param(input) {
         Ok(p) -> list.reverse([p, ..acc])
         Error(_) -> list.reverse(acc)
       }
-    _ -> list.reverse(acc)
   }
 }
 
-fn parse_single_param(
-  param: String,
-  parser: Parser,
-) -> Result(Parameter, ParseError) {
-  case splitter.split(parser.eq, param) {
-    #(name, "=", value) -> Ok(Parameter(string.uppercase(name), value))
-    _ -> Error(ParseError("Invalid parameter: " <> param))
+fn parse_single_param(param: String) -> Result(Parameter, ParseError) {
+  case split_first_unquoted(param, "=") {
+    Ok(#(name, value)) ->
+      Ok(Parameter(string.uppercase(name), unescape_param_value(value)))
+    Error(_) -> Error(ParseError("Invalid parameter: " <> param))
   }
 }
 

@@ -461,6 +461,86 @@ pub fn parse_lowercase_value_date_test() {
   assert event.is_all_day == True
 }
 
+pub fn parse_quoted_param_with_semicolon_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nATTENDEE;CN=\"Doe; John\":mailto:john@example.com\nSUMMARY:Meeting\nUID:quoted-semi@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(attendee) = gcal.get_property(event, "ATTENDEE")
+  assert attendee.value == "mailto:john@example.com"
+
+  let assert Ok(cn) = gcal.get_parameter(attendee, "CN")
+  assert cn == "Doe; John"
+}
+
+pub fn parse_quoted_param_with_colon_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nATTENDEE;CN=\"Doe: John\":mailto:john@example.com\nSUMMARY:Meeting\nUID:quoted-colon@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(attendee) = gcal.get_property(event, "ATTENDEE")
+  assert attendee.value == "mailto:john@example.com"
+
+  let assert Ok(cn) = gcal.get_parameter(attendee, "CN")
+  assert cn == "Doe: John"
+}
+
+pub fn parse_quoted_param_with_equals_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nATTENDEE;CN=\"Doe=John\":mailto:john@example.com\nSUMMARY:Meeting\nUID:quoted-eq@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(attendee) = gcal.get_property(event, "ATTENDEE")
+  assert attendee.value == "mailto:john@example.com"
+
+  let assert Ok(cn) = gcal.get_parameter(attendee, "CN")
+  assert cn == "Doe=John"
+}
+
+pub fn parse_quoted_param_with_escaped_quote_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nATTENDEE;CN=\"Doe\\\"John\":mailto:john@example.com\nSUMMARY:Meeting\nUID:quoted-escquote@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(attendee) = gcal.get_property(event, "ATTENDEE")
+  assert attendee.value == "mailto:john@example.com"
+
+  let assert Ok(cn) = gcal.get_parameter(attendee, "CN")
+  assert cn == "Doe\"John"
+}
+
+pub fn parse_quoted_param_with_escaped_backslash_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nATTENDEE;CN=\"Doe\\\\John\":mailto:john@example.com\nSUMMARY:Meeting\nUID:quoted-escback@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(attendee) = gcal.get_property(event, "ATTENDEE")
+  assert attendee.value == "mailto:john@example.com"
+
+  let assert Ok(cn) = gcal.get_parameter(attendee, "CN")
+  assert cn == "Doe\\John"
+}
+
+pub fn parse_multiple_quoted_params_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nATTENDEE;CN=\"Doe; John\";ROLE=\"REQ-PARTICIPANT\":mailto:john@example.com\nSUMMARY:Meeting\nUID:quoted-multi@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(attendee) = gcal.get_property(event, "ATTENDEE")
+
+  let assert Ok(cn) = gcal.get_parameter(attendee, "CN")
+  assert cn == "Doe; John"
+
+  let assert Ok(role) = gcal.get_parameter(attendee, "ROLE")
+  assert role == "REQ-PARTICIPANT"
+}
+
 fn make_test_parser() -> gcal.Parser {
   gcal.new_parser(tzdb())
 }
