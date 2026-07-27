@@ -216,6 +216,24 @@ pub fn parse_datetime_lowercase_z_test() {
   assert secs == 1_672_567_200
 }
 
+pub fn parse_datetime_dst_gap_test() {
+  let param = gcal.Parameter("TZID", "America/New_York")
+  let prop = gcal.Property("DTSTART", [param], "20240310T033000")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1_710_055_800
+}
+
+pub fn parse_datetime_dst_overlap_test() {
+  let param = gcal.Parameter("TZID", "Europe/Stockholm")
+  let prop = gcal.Property("DTSTART", [param], "20241027T023000")
+  let parser = make_test_parser()
+  let ts = gcal.parse_datetime(prop, parser, "UTC")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1_729_989_000
+}
+
 pub fn parse_calendar_with_timezone_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"

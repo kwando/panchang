@@ -8,6 +8,7 @@ import gleam/time/calendar
 import gleam/time/timestamp
 import splitter
 import tzif/database
+import tzif/tzcalendar
 
 /// A parsed iCal calendar.
 ///
@@ -549,47 +550,25 @@ pub fn parse_datetime(
                 False -> get_tzid(prop.params)
               }
 
-              case tzid {
-                Ok(tz) -> {
-                  let naive_ts =
-                    timestamp.from_calendar(date, time, calendar.utc_offset)
-                  case database.get_zone_parameters(naive_ts, tz, parser.db) {
-                    Ok(params) ->
-                      timestamp.from_calendar(date, time, params.offset)
-                    Error(_) ->
-                      timestamp.from_calendar(date, time, calendar.utc_offset)
-                  }
-                }
-                Error(_) -> {
-                  let tz_to_use = case fallback_tz == "" {
+              let tz_name = case tzid {
+                Ok(tz) -> tz
+                Error(_) ->
+                  case fallback_tz == "" {
                     True -> "UTC"
                     False -> fallback_tz
                   }
-                  case tz_to_use == "UTC" {
-                    True ->
+              }
+
+              case tz_name == "UTC" {
+                True ->
+                  timestamp.from_calendar(date, time, calendar.utc_offset)
+                False ->
+                  case tzcalendar.from_calendar(date, time, tz_name, parser.db) {
+                    Ok([ts]) -> ts
+                    Ok([ts, ..]) -> ts
+                    Ok([]) | Error(_) ->
                       timestamp.from_calendar(date, time, calendar.utc_offset)
-                    False -> {
-                      let naive_ts =
-                        timestamp.from_calendar(date, time, calendar.utc_offset)
-                      case
-                        database.get_zone_parameters(
-                          naive_ts,
-                          tz_to_use,
-                          parser.db,
-                        )
-                      {
-                        Ok(params) ->
-                          timestamp.from_calendar(date, time, params.offset)
-                        Error(_) ->
-                          timestamp.from_calendar(
-                            date,
-                            time,
-                            calendar.utc_offset,
-                          )
-                      }
-                    }
                   }
-                }
               }
             }
             Error(_) -> timestamp.unix_epoch
