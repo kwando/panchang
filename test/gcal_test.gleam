@@ -352,6 +352,81 @@ pub fn get_property_and_parameter_combined_test() {
   let assert Error(Nil) = gcal.get_parameter(attendee, "EMAIL")
 }
 
+pub fn parse_lowercase_component_names_test() {
+  let input =
+    "begin:vcalendar\nVERSION:2.0\nPRODID:-//Test//EN\nbegin:vevent\nSUMMARY:Lowercase\nUID:lowercase@test\nend:vevent\nend:vcalendar"
+  let assert Ok(calendar) = gcal_parse(input)
+
+  assert calendar.version == "2.0"
+  assert calendar.prodid == "-//Test//EN"
+
+  let assert [event] = calendar.events
+  assert event.summary == "Lowercase"
+  assert event.uid == "lowercase@test"
+}
+
+pub fn parse_lowercase_property_names_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nsummary:Lowercase Summary\nuid:lowercase@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+
+  let assert [event] = calendar.events
+  assert event.summary == "Lowercase Summary"
+  assert event.uid == "lowercase@test"
+}
+
+pub fn parse_lowercase_parameter_name_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART;tzid=Europe/Stockholm:20230101T100000\nSUMMARY:Timed\nUID:timed@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+
+  let assert [event] = calendar.events
+  let assert Ok(dtstart_prop) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "DTSTART" })
+  let assert [param] = dtstart_prop.params
+  assert param.name == "TZID"
+  assert param.value == "Europe/Stockholm"
+
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+  assert secs == 1_672_563_600
+}
+
+pub fn get_property_lowercase_search_test() {
+  let event =
+    gcal.Event(
+      uid: "123@test",
+      summary: "Meeting",
+      dtstart: timestamp.unix_epoch,
+      dtend: timestamp.unix_epoch,
+      is_all_day: False,
+      raw: [gcal.Property("DTSTART", [], "20230101T100000Z")],
+    )
+
+  let assert Ok(prop) = gcal.get_property(event, "dtstart")
+  assert prop.name == "DTSTART"
+  assert prop.value == "20230101T100000Z"
+}
+
+pub fn get_parameter_lowercase_search_test() {
+  let prop =
+    gcal.Property(
+      "DTSTART",
+      [gcal.Parameter("TZID", "Europe/Stockholm")],
+      "20230101T100000",
+    )
+
+  let assert Ok(tz) = gcal.get_parameter(prop, "tzid")
+  assert tz == "Europe/Stockholm"
+}
+
+pub fn parse_lowercase_value_date_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART;value=date:20230101\nDTEND;value=date:20230102\nSUMMARY:All day\nUID:allday@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal_parse(input)
+  let assert [event] = calendar.events
+  assert event.is_all_day == True
+}
+
 fn make_test_parser() -> gcal.Parser {
   gcal.new_parser(tzdb())
 }

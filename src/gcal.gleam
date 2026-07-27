@@ -94,7 +94,6 @@ type Component {
 pub opaque type Parser {
   Parser(
     lines: splitter.Splitter,
-    begin: splitter.Splitter,
     colon: splitter.Splitter,
     semi: splitter.Splitter,
     eq: splitter.Splitter,
@@ -117,7 +116,6 @@ pub opaque type Parser {
 pub fn new_parser(tz_db: database.TzDatabase) {
   Parser(
     lines: splitter.new(["\r\n", "\n"]),
-    begin: splitter.new(["BEGIN:"]),
     colon: splitter.new([":"]),
     semi: splitter.new([";"]),
     eq: splitter.new(["="]),
@@ -206,6 +204,24 @@ fn do_unfold_lines(
   }
 }
 
+fn parse_component_marker(line: String, prefix: String) -> Result(String, Nil) {
+  case string.starts_with(string.uppercase(line), prefix) {
+    True -> {
+      let prefix_length = string.length(prefix)
+      Ok(string.trim(string.drop_start(line, prefix_length)))
+    }
+    False -> Error(Nil)
+  }
+}
+
+fn parse_begin_component(line: String) -> Result(String, Nil) {
+  parse_component_marker(line, "BEGIN:")
+}
+
+fn parse_end_component(line: String) -> Result(String, Nil) {
+  parse_component_marker(line, "END:")
+}
+
 fn parse_all_components(
   lines: List(String),
   acc: List(Component),
@@ -214,14 +230,14 @@ fn parse_all_components(
   case lines {
     [] -> Ok(list.reverse(acc))
     [line, ..rest] ->
-      case splitter.split(parser.begin, line) {
-        #("", "BEGIN:", kind) ->
-          case parse_component(kind, rest, [], [], parser) {
+      case parse_begin_component(line) {
+        Ok(kind) ->
+          case parse_component(string.uppercase(kind), rest, [], [], parser) {
             Ok(#(component, remaining)) ->
               parse_all_components(remaining, [component, ..acc], parser)
             Error(err) -> Error(err)
           }
-        _ -> Error(ParseError("Unexpected line: " <> line))
+        Error(_) -> Error(ParseError("Unexpected line: " <> line))
       }
   }
 }
@@ -233,20 +249,26 @@ fn parse_component(
   children: List(Component),
   parser: Parser,
 ) -> Result(#(Component, List(String)), ParseError) {
-  let end_marker = "END:" <> kind
+  let kind = string.uppercase(kind)
   case lines {
     [] -> Error(ParseError("Unexpected end of input, missing END:" <> kind))
     [line, ..rest] ->
-      case line == end_marker {
-        True ->
-          Ok(#(
-            Component(kind, list.reverse(props), list.reverse(children)),
-            rest,
-          ))
-        False ->
-          case splitter.split(parser.begin, line) {
-            #("", "BEGIN:", subkind) ->
-              case parse_component(subkind, rest, [], [], parser) {
+      case parse_end_component(line) {
+        Ok(end_kind) ->
+          case string.uppercase(end_kind) == kind {
+            True ->
+              Ok(#(
+                Component(kind, list.reverse(props), list.reverse(children)),
+                rest,
+              ))
+            False -> Error(ParseError("Unexpected END:" <> end_kind))
+          }
+        Error(_) ->
+          case parse_begin_component(line) {
+            Ok(subkind) ->
+              case
+                parse_component(string.uppercase(subkind), rest, [], [], parser)
+              {
                 Ok(#(child, remaining)) ->
                   parse_component(
                     kind,
@@ -257,7 +279,7 @@ fn parse_component(
                   )
                 Error(err) -> Error(err)
               }
-            _ ->
+            Error(_) ->
               case parse_property(line, parser) {
                 Ok(prop) ->
                   parse_component(kind, rest, [prop, ..props], children, parser)
@@ -275,7 +297,7 @@ fn parse_property(
   case splitter.split(parser.colon, line) {
     #(name_part, ":", value) -> {
       let #(name, params) = parse_name_and_params(name_part, parser)
-      Ok(Property(name, params, unescape_text(value)))
+      Ok(Property(string.uppercase(name), params, unescape_text(value)))
     }
     _ -> Error(ParseError("Invalid property line: " <> line))
   }
@@ -320,7 +342,7 @@ fn parse_single_param(
   parser: Parser,
 ) -> Result(Parameter, ParseError) {
   case splitter.split(parser.eq, param) {
-    #(name, "=", value) -> Ok(Parameter(name, value))
+    #(name, "=", value) -> Ok(Parameter(string.uppercase(name), value))
     _ -> Error(ParseError("Invalid parameter: " <> param))
   }
 }
@@ -343,7 +365,11 @@ fn unescape_text(text: String) -> String {
 /// ```
 ///
 pub fn get_property(event: Event, name: String) -> Result(Property, Nil) {
-  list.find(event.raw, fn(prop) { prop.name == name })
+  list.find(event.raw, fn(prop) { name_eq(prop.name, name) })
+}
+
+fn name_eq(a: String, b: String) -> Bool {
+  string.uppercase(a) == string.uppercase(b)
 }
 
 /// Find a parameter value by name in a property's parameters.
@@ -358,7 +384,7 @@ pub fn get_property(event: Event, name: String) -> Result(Property, Nil) {
 ///
 pub fn get_parameter(prop: Property, name: String) -> Result(String, Nil) {
   list.find_map(prop.params, fn(param) {
-    case param.name == name {
+    case name_eq(param.name, name) {
       True -> Ok(param.value)
       False -> Error(Nil)
     }
@@ -367,17 +393,19 @@ pub fn get_parameter(prop: Property, name: String) -> Result(String, Nil) {
 
 fn extract_prop(props: List(Property), name: String) -> String {
   props
-  |> list.find(fn(p) { p.name == name })
+  |> list.find(fn(p) { name_eq(p.name, name) })
   |> result.map(fn(p) { p.value })
   |> result.unwrap("")
 }
 
 fn has_param_value_date(params: List(Parameter)) -> Bool {
-  list.any(params, fn(p) { p.name == "VALUE" && p.value == "DATE" })
+  list.any(params, fn(p) {
+    name_eq(p.name, "VALUE") && string.uppercase(p.value) == "DATE"
+  })
 }
 
 fn get_tzid(params: List(Parameter)) -> Result(String, ParseError) {
-  case list.find(params, fn(p) { p.name == "TZID" }) {
+  case list.find(params, fn(p) { name_eq(p.name, "TZID") }) {
     Ok(p) -> Ok(p.value)
     Error(_) -> Error(ParseError("No TZID parameter"))
   }
@@ -560,10 +588,11 @@ pub fn parse_datetime(
               }
 
               case tz_name == "UTC" {
-                True ->
-                  timestamp.from_calendar(date, time, calendar.utc_offset)
+                True -> timestamp.from_calendar(date, time, calendar.utc_offset)
                 False ->
-                  case tzcalendar.from_calendar(date, time, tz_name, parser.db) {
+                  case
+                    tzcalendar.from_calendar(date, time, tz_name, parser.db)
+                  {
                     Ok([ts]) -> ts
                     Ok([ts, ..]) -> ts
                     Ok([]) | Error(_) ->
