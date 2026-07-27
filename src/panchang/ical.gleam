@@ -40,12 +40,25 @@ pub type Event {
     uid: String,
     /// The event title. Empty string if not present.
     summary: String,
+    /// The event description. Empty string if not present.
+    description: String,
+    /// The event location. Empty string if not present.
+    location: String,
+    /// A URL associated with the event. Empty string if not present.
+    url: String,
     /// The start time as an unambiguous timestamp. Returns `unix_epoch` if
     /// missing or unparseable.
     dtstart: timestamp.Timestamp,
     /// The end time as an unambiguous timestamp. Returns `unix_epoch` if
     /// missing or unparseable.
     dtend: timestamp.Timestamp,
+    /// The creation timestamp, if present.
+    created: Option(timestamp.Timestamp),
+    /// The last-modified timestamp, if present.
+    last_modified: Option(timestamp.Timestamp),
+    /// The data-instance timestamp. UTC time when this iCalendar object was
+    /// generated or revised. Required by RFC 5545 but stored as Option.
+    dtstamp: Option(timestamp.Timestamp),
     /// True when the event uses date-only values (`VALUE=DATE`), indicating
     /// an all-day event.
     is_all_day: Bool,
@@ -473,6 +486,17 @@ fn extract_prop(props: List(Property), name: String) -> String {
   |> result.unwrap("")
 }
 
+fn extract_timestamp(
+  props: List(Property),
+  name: String,
+  parser: Parser,
+) -> Option(timestamp.Timestamp) {
+  props
+  |> list.find(fn(p) { name_eq(p.name, name) })
+  |> result.map(fn(p) { parse_datetime(p, parser, "UTC") })
+  |> option.from_result
+}
+
 fn has_param_value_date(params: List(Parameter)) -> Bool {
   list.any(params, fn(p) {
     name_eq(p.name, "VALUE") && string.uppercase(p.value) == "DATE"
@@ -697,6 +721,10 @@ fn build_event(
 ) -> Event {
   let uid = extract_prop(props, "UID")
   let summary = extract_prop(props, "SUMMARY")
+  let description = extract_prop(props, "DESCRIPTION")
+  let location = extract_prop(props, "LOCATION")
+  let url = extract_prop(props, "URL")
+
   let dtstart_prop = list.find(props, fn(p) { p.name == "DTSTART" })
   let dtend_prop = list.find(props, fn(p) { p.name == "DTEND" })
 
@@ -714,7 +742,24 @@ fn build_event(
     |> result.map(fn(p) { parse_datetime(p, parser, fallback_tz) })
     |> result.unwrap(timestamp.unix_epoch)
 
-  Event(uid, summary, dtstart, dtend, is_all_day, props)
+  let created = extract_timestamp(props, "CREATED", parser)
+  let last_modified = extract_timestamp(props, "LAST-MODIFIED", parser)
+  let dtstamp = extract_timestamp(props, "DTSTAMP", parser)
+
+  Event(
+    uid,
+    summary,
+    description,
+    location,
+    url,
+    dtstart,
+    dtend,
+    created,
+    last_modified,
+    dtstamp,
+    is_all_day,
+    props,
+  )
 }
 
 // Flatten the parsed component tree into a Calendar. When the caller does not

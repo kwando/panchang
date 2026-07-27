@@ -313,13 +313,72 @@ pub fn event_not_all_day_with_tzid_test() {
   assert event.is_all_day == False
 }
 
+pub fn parse_event_description_location_url_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Team Offsite\nDESCRIPTION:Annual planning session\nLOCATION:Stockholm\nURL:https://example.com/offsite\nDTSTART:20230101T100000Z\nDTEND:20230101T110000Z\nUID:details@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+
+  assert event.summary == "Team Offsite"
+  assert event.description == "Annual planning session"
+  assert event.location == "Stockholm"
+  assert event.url == "https://example.com/offsite"
+}
+
+pub fn parse_event_created_last_modified_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Meeting\nCREATED:20230101T080000Z\nLAST-MODIFIED:20230102T090000Z\nDTSTART:20230101T100000Z\nDTEND:20230101T110000Z\nUID:timestamps@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Some(created) = event.created
+  let #(created_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(created)
+  assert created_secs == 1_672_560_000
+
+  let assert Some(last_modified) = event.last_modified
+  let #(modified_secs, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(last_modified)
+  assert modified_secs == 1_672_650_000
+}
+
+pub fn parse_event_dtstamp_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Meeting\nDTSTAMP:20230101T120000Z\nDTSTART:20230101T100000Z\nDTEND:20230101T110000Z\nUID:dtstamp@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+
+  let assert Some(dtstamp) = event.dtstamp
+  let #(dtstamp_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(dtstamp)
+  assert dtstamp_secs == 1_672_574_400
+}
+
+pub fn parse_event_missing_optional_fields_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nSUMMARY:Minimal\nDTSTART:20230101T100000Z\nDTEND:20230101T110000Z\nUID:minimal@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+
+  assert event.description == ""
+  assert event.location == ""
+  assert event.url == ""
+  assert event.created == None
+  assert event.last_modified == None
+  assert event.dtstamp == None
+}
+
 pub fn get_property_test() {
   let event =
     ical.Event(
       uid: "123@test",
       summary: "Meeting",
+      description: "",
+      location: "",
+      url: "",
       dtstart: timestamp.unix_epoch,
       dtend: timestamp.unix_epoch,
+      created: None,
+      last_modified: None,
+      dtstamp: None,
       is_all_day: False,
       raw: [
         ical.Property(
@@ -425,8 +484,14 @@ pub fn get_property_lowercase_search_test() {
     ical.Event(
       uid: "123@test",
       summary: "Meeting",
+      description: "",
+      location: "",
+      url: "",
       dtstart: timestamp.unix_epoch,
       dtend: timestamp.unix_epoch,
+      created: None,
+      last_modified: None,
+      dtstamp: None,
       is_all_day: False,
       raw: [ical.Property("DTSTART", [], "20230101T100000Z")],
     )
