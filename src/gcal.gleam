@@ -1,3 +1,4 @@
+import gleam/bit_array
 import gleam/int
 import gleam/list
 import gleam/option.{type Option}
@@ -422,47 +423,85 @@ fn parse_date_only(value: String) -> Result(timestamp.Timestamp, ParseError) {
 }
 
 fn parse_datetime_value(
-  parser: Parser,
+  _parser: Parser,
   value: String,
-) -> Result(#(calendar.Date, calendar.TimeOfDay, Bool), ParseError) {
-  case splitter.split(parser.t_sep, value) {
-    #(date_str, sep, time_str) ->
-      case sep == "T" || sep == "t" {
+) -> Result(#(calendar.Date, calendar.TimeOfDay), ParseError) {
+  case bit_array.from_string(value) {
+    <<y1, y2, y3, y4, m1, m2, d1, d2, t, h1, h2, min1, min2, s1, s2>>
+      if y1 >= 48
+      && y1 <= 57
+      && y2 >= 48
+      && y2 <= 57
+      && y3 >= 48
+      && y3 <= 57
+      && y4 >= 48
+      && y4 <= 57
+      && m1 >= 48
+      && m1 <= 57
+      && m2 >= 48
+      && m2 <= 57
+      && d1 >= 48
+      && d1 <= 57
+      && d2 >= 48
+      && d2 <= 57
+      && t >= 48
+      && h1 >= 48
+      && h1 <= 57
+      && h2 >= 48
+      && h2 <= 57
+      && min1 >= 48
+      && min1 <= 57
+      && min2 >= 48
+      && min2 <= 57
+      && s1 >= 48
+      && s1 <= 57
+      && s2 >= 48
+      && s2 <= 57
+    -> {
+      case t == 84 || t == 116 {
+        False -> Error(ParseError("Invalid T separator"))
         True -> {
-          let year = parse_int(string.slice(date_str, 0, 4))
-          let month = parse_int(string.slice(date_str, 4, 2))
-          let day = parse_int(string.slice(date_str, 6, 2))
+          let y1v = y1 - 48
+          let y2v = y2 - 48
+          let y3v = y3 - 48
+          let y4v = y4 - 48
+          let m1v = m1 - 48
+          let m2v = m2 - 48
+          let d1v = d1 - 48
+          let d2v = d2 - 48
+          let h1v = h1 - 48
+          let h2v = h2 - 48
+          let min1v = min1 - 48
+          let min2v = min2 - 48
+          let s1v = s1 - 48
+          let s2v = s2 - 48
+          let year = y1v * 1000 + y2v * 100 + y3v * 10 + y4v
+          let month = m1v * 10 + m2v
+          let day = d1v * 10 + d2v
+          let hours = h1v * 10 + h2v
+          let minutes = min1v * 10 + min2v
+          let seconds = s1v * 10 + s2v
 
-          let hours = parse_int(string.slice(time_str, 0, 2))
-          let minutes = parse_int(string.slice(time_str, 2, 2))
-          let seconds_raw =
-            string.slice(time_str, 4, string.length(time_str) - 4)
-          let seconds = parse_int(seconds_raw)
-
-          case year, month, day, hours, minutes, seconds {
-            Ok(y), Ok(m), Ok(d), Ok(h), Ok(min), Ok(s) -> {
-              case calendar.month_from_int(m) {
-                Ok(month_enum) -> {
-                  let date = calendar.Date(y, month_enum, d)
-                  case calendar.is_valid_date(date) {
-                    True -> {
-                      let time = calendar.TimeOfDay(h, min, s, 0)
-                      case calendar.is_valid_time_of_day(time) {
-                        True -> Ok(#(date, time, False))
-                        False -> Error(ParseError("Invalid time"))
-                      }
-                    }
-                    False -> Error(ParseError("Invalid date"))
+          case calendar.month_from_int(month) {
+            Ok(month_enum) -> {
+              let date = calendar.Date(year, month_enum, day)
+              case calendar.is_valid_date(date) {
+                True -> {
+                  let time = calendar.TimeOfDay(hours, minutes, seconds, 0)
+                  case calendar.is_valid_time_of_day(time) {
+                    True -> Ok(#(date, time))
+                    False -> Error(ParseError("Invalid time"))
                   }
                 }
-                Error(_) -> Error(ParseError("Invalid month"))
+                False -> Error(ParseError("Invalid date"))
               }
             }
-            _, _, _, _, _, _ -> Error(ParseError("Invalid datetime components"))
+            Error(_) -> Error(ParseError("Invalid month"))
           }
         }
-        False -> Error(ParseError("Missing T separator"))
       }
+    }
+    _ -> Error(ParseError("Invalid datetime format"))
   }
 }
 
@@ -505,7 +544,7 @@ pub fn parse_datetime(
           }
 
           case parse_datetime_value(parser, clean_value) {
-            Ok(#(date, time, _)) -> {
+            Ok(#(date, time)) -> {
               let tzid = case is_utc {
                 True -> Error(ParseError("UTC"))
                 False -> get_tzid(prop.params)
