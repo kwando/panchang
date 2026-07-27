@@ -1,7 +1,9 @@
 import gcal
+import gleeunit
 import gleam/list
 import gleam/string
-import gleeunit
+import gleam/time/timestamp
+import splitter
 
 pub fn main() -> Nil {
   gleeunit.main()
@@ -13,6 +15,7 @@ pub fn parse_simple_calendar_test() {
 
   assert calendar.version == "2.0"
   assert calendar.prodid == "-//Test//EN"
+  assert calendar.timezone == "UTC"
   assert calendar.events == []
 }
 
@@ -33,7 +36,8 @@ pub fn parse_event_with_location_test() {
   let assert [event] = calendar.events
   assert event.summary == "Conference"
 
-  let assert Ok(loc) = list.find(event.raw, fn(p) { p.name == "LOCATION" })
+  let assert Ok(loc) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "LOCATION" })
   assert loc.value == "Stockholm"
 }
 
@@ -43,8 +47,8 @@ pub fn parse_event_with_parameters_test() {
   let assert Ok(calendar) = gcal.parse(input)
   let assert [event] = calendar.events
 
-  assert event.dtstart == "20230101T100000"
-  assert event.dtend == "20230101T110000"
+  assert event.dtstart != timestamp.unix_epoch
+  assert event.dtend != timestamp.unix_epoch
 
   let assert Ok(dtstart_prop) =
     list.find(event.raw, fn(p: gcal.Property) { p.name == "DTSTART" })
@@ -54,29 +58,15 @@ pub fn parse_event_with_parameters_test() {
   assert param.value == "Europe/Stockholm"
 }
 
-pub fn parse_property_with_params_in_raw_test() {
-  let input =
-    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nLOCATION;FMTTYPE=text/html:Conference Room\nSUMMARY:Test\nUID:params@test\nEND:VEVENT\nEND:VCALENDAR"
-  let assert Ok(calendar) = gcal.parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(loc_prop) =
-    list.find(event.raw, fn(p: gcal.Property) { p.name == "LOCATION" })
-
-  let assert [fmt] = loc_prop.params
-  assert fmt.name == "FMTTYPE"
-  assert fmt.value == "text/html"
-  assert loc_prop.value == "Conference Room"
-}
-
 pub fn parse_event_with_dtstart_dtend_test() {
   let input =
     "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000Z\nDTEND:20230101T110000Z\nSUMMARY:Timed\nUID:timed@test\nEND:VEVENT\nEND:VCALENDAR"
   let assert Ok(calendar) = gcal.parse(input)
   let assert [event] = calendar.events
 
-  assert event.dtstart == "20230101T100000Z"
-  assert event.dtend == "20230101T110000Z"
+  let #(start_secs, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+  assert start_secs == 1672567200
 }
 
 pub fn parse_multiple_events_test() {
@@ -95,7 +85,8 @@ pub fn parse_folded_lines_test() {
   let assert Ok(calendar) = gcal.parse(input)
   let assert [event] = calendar.events
 
-  let assert Ok(desc) = list.find(event.raw, fn(p) { p.name == "DESCRIPTION" })
+  let assert Ok(desc) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "DESCRIPTION" })
   assert desc.value == "This is a long description that spans multiple lines"
 }
 
@@ -105,7 +96,8 @@ pub fn parse_escaped_text_test() {
   let assert Ok(calendar) = gcal.parse(input)
   let assert [event] = calendar.events
 
-  let assert Ok(desc) = list.find(event.raw, fn(p) { p.name == "DESCRIPTION" })
+  let assert Ok(desc) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "DESCRIPTION" })
   assert string.contains(desc.value, "\n")
   assert string.contains(desc.value, ",")
 }
@@ -119,12 +111,159 @@ pub fn parse_empty_summary_test() {
 }
 
 pub fn parse_real_ical_file_test() {
-  let input =
-    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//caldav.icloud.com//CALDAVJ 2626B756//EN\nX-WR-CALNAME:Privat\nBEGIN:VEVENT\nCREATED:20171104T221935Z\nDTEND;TZID=Europe/Stockholm:20171128T203000\nDTSTAMP:20171125T133010Z\nDTSTART;TZID=Europe/Stockholm:20171128T193000\nLOCATION:Malmö Live\nSUMMARY:Anders och Måns\nUID:001E66D2-7DF8-40A8-B0BC-EBC4E3F9C2FD\nEND:VEVENT\nEND:VCALENDAR"
+  let input = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//caldav.icloud.com//CALDAVJ 2626B756//EN\nX-WR-CALNAME:Privat\nBEGIN:VEVENT\nCREATED:20171104T221935Z\nDTEND;TZID=Europe/Stockholm:20171128T203000\nDTSTAMP:20171125T133010Z\nDTSTART;TZID=Europe/Stockholm:20171128T193000\nLOCATION:Malmö Live\nSUMMARY:Anders och Måns\nUID:001E66D2-7DF8-40A8-B0BC-EBC4E3F9C2FD\nEND:VEVENT\nEND:VCALENDAR"
   let assert Ok(calendar) = gcal.parse(input)
   assert calendar.version == "2.0"
   assert calendar.prodid == "-//caldav.icloud.com//CALDAVJ 2626B756//EN"
   let assert [event] = calendar.events
   assert event.summary == "Anders och Måns"
   assert event.uid == "001E66D2-7DF8-40A8-B0BC-EBC4E3F9C2FD"
+}
+
+pub fn parse_property_with_params_in_raw_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nLOCATION;FMTTYPE=text/html:Conference Room\nSUMMARY:Test\nUID:params@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal.parse(input)
+  let assert [event] = calendar.events
+
+  let assert Ok(loc_prop) =
+    list.find(event.raw, fn(p: gcal.Property) { p.name == "LOCATION" })
+
+  let assert [fmt] = loc_prop.params
+  assert fmt.name == "FMTTYPE"
+  assert fmt.value == "text/html"
+  assert loc_prop.value == "Conference Room"
+}
+
+pub fn parse_datetime_utc_test() {
+  let prop = gcal.Property("DTSTART", [], "20230101T100000Z")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1672567200
+}
+
+pub fn parse_datetime_tzid_winter_test() {
+  let param = gcal.Parameter("TZID", "Europe/Stockholm")
+  let prop = gcal.Property("DTSTART", [param], "20230101T100000")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1672563600
+}
+
+pub fn parse_datetime_tzid_summer_test() {
+  let param = gcal.Parameter("TZID", "Europe/Stockholm")
+  let prop = gcal.Property("DTSTART", [param], "20230601T100000")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1685606400
+}
+
+pub fn parse_datetime_date_only_test() {
+  let param = gcal.Parameter("VALUE", "DATE")
+  let prop = gcal.Property("DTSTART", [param], "20230101")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1672531200
+}
+
+pub fn parse_datetime_floating_with_tz_test() {
+  let prop = gcal.Property("DTSTART", [], "20230101T100000")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "Europe/Stockholm")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1672563600
+}
+
+pub fn parse_datetime_floating_as_utc_test() {
+  let prop = gcal.Property("DTSTART", [], "20230101T100000")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1672567200
+}
+
+pub fn parse_datetime_invalid_test() {
+  let prop = gcal.Property("DTSTART", [], "not-a-date")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  assert ts == timestamp.unix_epoch
+}
+
+pub fn parse_datetime_empty_test() {
+  let prop = gcal.Property("DTSTART", [], "")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  assert ts == timestamp.unix_epoch
+}
+
+pub fn parse_datetime_lowercase_z_test() {
+  let prop = gcal.Property("DTSTART", [], "20230101t100000z")
+  let splitters = make_test_splitters()
+  let ts = gcal.parse_datetime(prop, splitters, "UTC")
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
+  assert secs == 1672567200
+}
+
+pub fn parse_calendar_with_x_wr_timezone_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nX-WR-TIMEZONE:Europe/Stockholm\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal.parse(input)
+
+  assert calendar.timezone == "Europe/Stockholm"
+
+  let assert [event] = calendar.events
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+  assert secs == 1672563600
+}
+
+pub fn parse_with_timezone_overrides_x_wr_timezone_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nX-WR-TIMEZONE:Europe/Stockholm\nBEGIN:VEVENT\nDTSTART:20230101T100000\nSUMMARY:Floating\nUID:float@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal.parse_with_timezone(input, "America/New_York")
+
+  assert calendar.timezone == "America/New_York"
+
+  let assert [event] = calendar.events
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+  assert secs == 1672585200
+}
+
+pub fn event_is_all_day_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART;VALUE=DATE:20230101\nDTEND;VALUE=DATE:20230102\nSUMMARY:All day\nUID:allday@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal.parse(input)
+  let assert [event] = calendar.events
+  assert event.is_all_day == True
+}
+
+pub fn event_not_all_day_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000Z\nDTEND:20230101T110000Z\nSUMMARY:Timed\nUID:timed@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal.parse(input)
+  let assert [event] = calendar.events
+  assert event.is_all_day == False
+}
+
+pub fn event_not_all_day_with_tzid_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART;TZID=Europe/Stockholm:20230101T100000\nDTEND;TZID=Europe/Stockholm:20230101T110000\nSUMMARY:Timed\nUID:timed@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = gcal.parse(input)
+  let assert [event] = calendar.events
+  assert event.is_all_day == False
+}
+
+fn make_test_splitters() -> gcal.Splitters {
+  gcal.Splitters(
+    lines: splitter.new(["\r\n", "\n"]),
+    begin: splitter.new(["BEGIN:"]),
+    colon: splitter.new([":"]),
+    semi: splitter.new([";"]),
+    eq: splitter.new(["="]),
+    ws: splitter.new([" ", "\t"]),
+    t_sep: splitter.new(["T", "t"]),
+  )
 }

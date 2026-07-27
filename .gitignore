@@ -2,4 +2,4 @@
 *.ez
 /build
 erl_crash.dump
-calendar.ical
+examples/*.ical

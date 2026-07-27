@@ -7,15 +7,28 @@
 # You should check this file into your source control repository.
 
 packages = [
+  { name = "argv", version = "1.1.0", build_tools = ["gleam"], requirements = [], otp_app = "argv", source = "hex", outer_checksum = "3277D100448BDB4A29B6D58C0F36F631CBC349E8BDD09766C6309DF202831140" },
   { name = "filepath", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "filepath", source = "hex", outer_checksum = "B06A9AF0BF10E51401D64B98E4B627F1D2E48C154967DA7AF4D0914780A6D40A" },
+  { name = "gleam_community_ansi", version = "1.5.0", build_tools = ["gleam"], requirements = ["gleam_community_colour", "gleam_regexp", "gleam_stdlib"], otp_app = "gleam_community_ansi", source = "hex", outer_checksum = "B5AA433AF84313E23FDF90CCFF752B9380FE9FFCE02B2949D49B7AACCC77B16D" },
+  { name = "gleam_community_colour", version = "2.0.4", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib"], otp_app = "gleam_community_colour", source = "hex", outer_checksum = "6DB4665555D7D2B27F0EA32EF47E8BEBC4303821765F9C73D483F38EE24894F0" },
+  { name = "gleam_json", version = "3.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_json", source = "hex", outer_checksum = "44FDAA8847BE8FC48CA7A1C089706BD54BADCC4C45B237A992EDDF9F2CDB2836" },
+  { name = "gleam_regexp", version = "1.1.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_regexp", source = "hex", outer_checksum = "9C215C6CA84A5B35BB934A9B61A9A306EC743153BE2B0425A0D032E477B062A9" },
   { name = "gleam_stdlib", version = "1.0.3", build_tools = ["gleam"], requirements = [], otp_app = "gleam_stdlib", source = "hex", outer_checksum = "1F543AFBA5D33DA493E6087F4E4C4F20D899411343512686C98A8ABB2963CF22" },
+  { name = "gleam_time", version = "1.8.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_time", source = "hex", outer_checksum = "533D8723774D61AD4998324F5DD1DABDCDBFABAFB9E87CB5D03C6955448FC97D" },
   { name = "gleeunit", version = "1.11.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleeunit", source = "hex", outer_checksum = "EC31ABA74256AEA531EDF8169931D775BBB384FED0A8A1BDC4DD9354E3E21826" },
+  { name = "gtempo", version = "7.3.1", build_tools = ["gleam"], requirements = ["gleam_stdlib", "gleam_time"], otp_app = "gtempo", source = "hex", outer_checksum = "009D2F62060510EF5AB9EC132C2D708498F137D6B2FE25C1FD53D811B0AB424C" },
+  { name = "gtz", version = "0.4.0", build_tools = ["gleam"], requirements = ["gleam_stdlib", "gleam_time", "gtempo", "tzif"], otp_app = "gtz", source = "hex", outer_checksum = "09F1B055643F5BB78E749637A1EA69D2F90742BAEB7EBA9DA94AFAEDDF44902A" },
   { name = "simplifile", version = "2.6.0", build_tools = ["gleam"], requirements = ["filepath", "gleam_stdlib"], otp_app = "simplifile", source = "hex", outer_checksum = "A33C345F0A4FFB91DCCD4220114534A58C387964A5F17B3E472CEBD1ADA9FFB4" },
   { name = "splitter", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "splitter", source = "hex", outer_checksum = "3DFD6B6C49E61EDAF6F7B27A42054A17CFF6CA2135FF553D0CB61C234D281DD0" },
+  { name = "tzif", version = "1.1.2", build_tools = ["gleam"], requirements = ["filepath", "gleam_stdlib", "gleam_time", "simplifile"], otp_app = "tzif", source = "hex", outer_checksum = "04C8EBAFB7F6A6E61B8B0C16E06F96E7C7F76C31172EF07204CE9813B2E54AD2" },
 ]
 
 [requirements]
+argv = { version = ">= 1.1.0 and < 2.0.0" }
+gleam_community_ansi = { version = ">= 1.5.0 and < 2.0.0" }
 gleam_stdlib = { version = ">= 1.0.0 and < 2.0.0" }
+gleam_time = { version = ">= 1.0.0 and < 2.0.0" }
 gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
+gtz = { version = ">= 0.4.0 and < 1.0.0" }
 simplifile = { version = ">= 2.6.0 and < 3.0.0" }
 splitter = { version = ">= 1.2.0 and < 2.0.0" }
