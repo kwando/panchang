@@ -138,30 +138,6 @@ pub fn new_parser(tz_db: database.TzDatabase) {
   )
 }
 
-/// Parse an iCal string into a `Calendar`.
-///
-/// Floating-time events (those without a `Z` suffix or `TZID` parameter) are
-/// resolved using the provided `timezone`, otherwise UTC.
-///
-/// Events with an explicit `TZID` parameter are always resolved using that
-/// timezone, regardless of this argument.
-///
-/// ```gleam
-/// import panchang/ical
-/// import gleam/option
-/// import tzif/database
-///
-/// let assert Ok(db) = database.load_from_os()
-/// let parser = ical.new_parser(db)
-///
-/// // Use UTC for floating times
-/// let assert Ok(calendar) = ical.parse(parser, ical, option.None)
-///
-/// // Resolve floating times to a specific timezone
-/// let assert Ok(calendar) =
-///   ical.parse(parser, ical, option.Some("Europe/Stockholm"))
-/// ```
-///
 /// Parse an iCal string into a raw component tree.
 ///
 /// Returns the single root `VCALENDAR` component with all its children, such as
@@ -187,6 +163,30 @@ pub fn parse_tree(
   }
 }
 
+/// Parse an iCal string into a `Calendar`.
+///
+/// Floating-time events (those without a `Z` suffix or `TZID` parameter) are
+/// resolved using the provided `timezone`, otherwise UTC.
+///
+/// Events with an explicit `TZID` parameter are always resolved using that
+/// timezone, regardless of this argument.
+///
+/// ```gleam
+/// import panchang/ical
+/// import gleam/option
+/// import tzif/database
+///
+/// let assert Ok(db) = database.load_from_os()
+/// let parser = ical.new_parser(db)
+///
+/// // Use UTC for floating times
+/// let assert Ok(calendar) = ical.parse(parser, ical, option.None)
+///
+/// // Resolve floating times to a specific timezone
+/// let assert Ok(calendar) =
+///   ical.parse(parser, ical, option.Some("Europe/Stockholm"))
+/// ```
+///
 pub fn parse(
   parser: Parser,
   input: String,
