@@ -51,12 +51,6 @@ pub fn main() {
   explicitly parsed.
 - Exposes a generic `parse_tree` function for full access to the component tree.
 
-## API
-
-- `ical.new_parser(tz_db: TzDatabase) -> Parser` — create a parser with a timezone database.
-- `ical.parse(parser: Parser, input: String, timezone: Option(String)) -> Result(Calendar, ParseError)` — parse an iCal string. Pass `Some(tz)` to resolve floating times to a specific timezone, or `None` to use `X-WR-TIMEZONE` or UTC.
-- `ical.parse_tree(parser: Parser, input: String) -> Result(Component, ParseError)` — parse into a raw, nested component tree. Useful for accessing `VTODO`, `VALARM`, `VTIMEZONE`, custom properties, or components not modeled by `parse`.
-
 ## Out of scope
 
 This library is a parser, not a full calendar runtime. It does **not**:
