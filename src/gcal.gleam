@@ -7,35 +7,76 @@ import gleam/time/timestamp
 import gtz
 import splitter
 
+/// A parsed iCal calendar.
+///
+/// Contains the calendar version, producer ID, the detected timezone used for
+/// resolving floating-time events, and a list of parsed events.
+///
 pub type Calendar {
   Calendar(
+    /// The iCal version, typically `"2.0"`.
     version: String,
+    /// The producer identifier, e.g. `"-//Apple Inc.//macOS 14.0//EN"`.
     prodid: String,
+    /// The timezone used for resolving floating-time events. Either extracted
+    /// from the `X-WR-TIMEZONE` property, the value passed to
+    /// `parse_with_timezone`, or `"UTC"` as a fallback.
     timezone: String,
+    /// All parsed VEVENT components.
     events: List(Event),
   )
 }
 
+/// A single calendar event (VEVENT).
+///
+/// Common properties are extracted into named fields. All original properties
+/// are preserved in `raw` for access to anything not explicitly parsed.
+///
 pub type Event {
   Event(
+    /// The globally unique identifier for this event.
     uid: String,
+    /// The event title. Empty string if not present.
     summary: String,
+    /// The start time as an unambiguous timestamp. Returns `unix_epoch` if
+    /// missing or unparseable.
     dtstart: timestamp.Timestamp,
+    /// The end time as an unambiguous timestamp. Returns `unix_epoch` if
+    /// missing or unparseable.
     dtend: timestamp.Timestamp,
+    /// True when the event uses date-only values (`VALUE=DATE`), indicating
+    /// an all-day event.
     is_all_day: Bool,
+    /// All original properties for this event, including DTSTART, DTEND,
+    /// LOCATION, DESCRIPTION, ATTENDEE, etc.
     raw: List(Property),
   )
 }
 
+/// A single iCal property line, consisting of a name, optional parameters,
+/// and a value.
+///
+/// For example: `DTSTART;TZID=Europe/Stockholm:20230101T100000` becomes:
+/// `Property("DTSTART", [Parameter("TZID", "Europe/Stockholm")], "20230101T100000")`
+///
 pub type Property {
   Property(name: String, params: List(Parameter), value: String)
 }
 
+/// A key-value parameter attached to a property.
+///
+/// Parameters appear before the colon in a property line, separated by
+/// semicolons. For example, `TZID=Europe/Stockholm` in:
+/// `DTSTART;TZID=Europe/Stockholm:20230101T100000`
+///
 pub type Parameter {
   Parameter(name: String, value: String)
 }
 
+/// An error that can occur during parsing.
 pub type Error {
+  /// The input could not be parsed. The string contains a description of
+  /// what went wrong.
   ParseError(String)
 }
 
@@ -69,10 +110,35 @@ pub fn new_parser() {
   )
 }
 
+/// Parse an iCal string into a `Calendar`.
+///
+/// Floating-time events (those without a `Z` suffix or `TZID` parameter) are
+/// resolved using the `X-WR-TIMEZONE` property if present, otherwise UTC.
+///
+/// ```gleam
+/// let assert Ok(calendar) = gcal.parse(ical_string)
+/// calendar.events
+/// ```
+///
 pub fn parse(input: String) -> Result(Calendar, Error) {
   parse_with_timezone(input, "")
 }
 
+/// Parse an iCal string into a `Calendar`, using the given timezone for
+/// floating-time events.
+///
+/// Floating-time events are those without a `Z` suffix and without a `TZID`
+/// parameter. This function resolves them to the provided timezone instead
+/// of using `X-WR-TIMEZONE` or UTC.
+///
+/// Events with an explicit `TZID` parameter are always resolved using that
+/// timezone, regardless of this argument.
+///
+/// ```gleam
+/// let assert Ok(calendar) =
+///   gcal.parse_with_timezone(ical_string, "Europe/Stockholm")
+/// ```
+///
 pub fn parse_with_timezone(
   input: String,
   tz: String,
@@ -253,10 +319,29 @@ fn unescape_text(text: String) -> String {
   |> string.replace("\\\\", "\\")
 }
 
+/// Find a property by name in an event's raw properties.
+///
+/// Returns `Ok(Property)` if found, `Error(Nil)` otherwise.
+///
+/// ```gleam
+/// let assert Ok(location_prop) = gcal.get_property(event, "LOCATION")
+/// location_prop.value
+/// ```
+///
 pub fn get_property(event: Event, name: String) -> Result(Property, Nil) {
   list.find(event.raw, fn(prop) { prop.name == name })
 }
 
+/// Find a parameter value by name in a property's parameters.
+///
+/// Returns `Ok(String)` with the parameter value if found, `Error(Nil)`
+/// otherwise.
+///
+/// ```gleam
+/// let assert Ok(prop) = gcal.get_property(event, "DTSTART")
+/// let assert Ok(tzid) = gcal.get_parameter(prop, "TZID")
+/// ```
+///
 pub fn get_parameter(prop: Property, name: String) -> Result(String, Nil) {
   list.find_map(prop.params, fn(param) {
     case param.name == name {
@@ -368,6 +453,16 @@ fn parse_datetime_value(
   }
 }
 
+/// Parse a datetime property value into a `Timestamp`.
+///
+/// Handles three iCal datetime formats:
+/// - UTC: `20230101T100000Z`
+/// - Timezone-aware: `20230101T100000` with `TZID=Europe/Stockholm` parameter
+/// - Date-only: `VALUE=DATE:20230101` (treated as midnight UTC)
+/// - Floating: `20230101T100000` (resolved using `fallback_tz`, or UTC)
+///
+/// Returns `timestamp.unix_epoch` for empty or unparseable values.
+///
 @internal
 pub fn parse_datetime(
   prop: Property,
