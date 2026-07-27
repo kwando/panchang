@@ -104,10 +104,10 @@ pub opaque type Parser {
 ///
 /// ```gleam
 /// import tzif/database
-/// import gcal
+/// import panchang/ical
 ///
 /// let assert Ok(db) = database.load_from_os()
-/// let parser = gcal.new_parser(db)
+/// let parser = ical.new_parser(db)
 /// ```
 ///
 pub fn new_parser(tz_db: database.TzDatabase) {
@@ -128,19 +128,19 @@ pub fn new_parser(tz_db: database.TzDatabase) {
 /// timezone, regardless of this argument.
 ///
 /// ```gleam
-/// import gcal
+/// import panchang/ical
 /// import gleam/option
 /// import tzif/database
 ///
 /// let assert Ok(db) = database.load_from_os()
-/// let parser = gcal.new_parser(db)
+/// let parser = ical.new_parser(db)
 ///
 /// // Use UTC for floating times
-/// let assert Ok(calendar) = gcal.parse(parser, ical, option.None)
+/// let assert Ok(calendar) = ical.parse(parser, ical, option.None)
 ///
 /// // Resolve floating times to a specific timezone
 /// let assert Ok(calendar) =
-///   gcal.parse(parser, ical, option.Some("Europe/Stockholm"))
+///   ical.parse(parser, ical, option.Some("Europe/Stockholm"))
 /// ```
 ///
 pub fn parse(
@@ -418,7 +418,7 @@ fn do_unescape_text(input: BitArray, acc: BitArray) -> BitArray {
 /// Returns `Ok(Property)` if found, `Error(Nil)` otherwise.
 ///
 /// ```gleam
-/// let assert Ok(location_prop) = gcal.get_property(event, "LOCATION")
+/// let assert Ok(location_prop) = ical.get_property(event, "LOCATION")
 /// location_prop.value
 /// ```
 ///
@@ -436,8 +436,8 @@ fn name_eq(a: String, b: String) -> Bool {
 /// otherwise.
 ///
 /// ```gleam
-/// let assert Ok(prop) = gcal.get_property(event, "DTSTART")
-/// let assert Ok(tzid) = gcal.get_parameter(prop, "TZID")
+/// let assert Ok(prop) = ical.get_property(event, "DTSTART")
+/// let assert Ok(tzid) = ical.get_parameter(prop, "TZID")
 /// ```
 ///
 pub fn get_parameter(prop: Property, name: String) -> Result(String, Nil) {

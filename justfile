@@ -1,4 +1,4 @@
-project_name := "gcal"
+project_name := "panchang"
 
 download:
     curl "${CALENDAR_URL}" > examples/calendar.ical

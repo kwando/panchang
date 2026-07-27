@@ -1,5 +1,5 @@
 import argv
-import gcal
+import panchang/ical
 import gleam/io
 import gleam/list
 import gleam/option.{None}
@@ -14,7 +14,7 @@ import tzif/database
 pub type Error {
   InvalidArguments(String)
   CannotReadFile(simplifile.FileError)
-  CannotParseCalendar(gcal.ParseError)
+  CannotParseCalendar(ical.ParseError)
   CannotReadTimezoneDatabase
 }
 
@@ -31,10 +31,10 @@ pub fn main() {
         |> result.replace_error(CannotReadTimezoneDatabase),
       )
 
-      let parser = gcal.new_parser(tzdata)
+      let parser = ical.new_parser(tzdata)
 
       use calendar <- result.try(
-        gcal.parse(parser, data, None)
+        ical.parse(parser, data, None)
         |> result.map_error(CannotParseCalendar),
       )
       prettify_calendar(calendar)
@@ -52,12 +52,12 @@ fn error_to_string(error: Error) {
   case error {
     InvalidArguments(msg) -> msg
     CannotReadFile(error) -> "failed to read file: " <> string.inspect(error)
-    CannotParseCalendar(gcal.ParseError(msg)) -> "cant parse calendar: " <> msg
+    CannotParseCalendar(ical.ParseError(msg)) -> "cant parse calendar: " <> msg
     CannotReadTimezoneDatabase -> "failed to initalize timezone database"
   }
 }
 
-fn prettify_calendar(calendar: gcal.Calendar) -> Result(String, Error) {
+fn prettify_calendar(calendar: ical.Calendar) -> Result(String, Error) {
   let events =
     calendar.events
     |> list.sort(fn(a, b) { timestamp.compare(a.dtstart, b.dtstart) })
@@ -66,7 +66,7 @@ fn prettify_calendar(calendar: gcal.Calendar) -> Result(String, Error) {
   |> Ok
 }
 
-pub fn format_event(event: gcal.Event) -> String {
+pub fn format_event(event: ical.Event) -> String {
   let header =
     event.summary
     |> ansi.yellow
@@ -93,7 +93,7 @@ pub fn format_event(event: gcal.Event) -> String {
   header <> times <> all_day_flag <> props_header <> props
 }
 
-fn format_property(prop: gcal.Property) -> String {
+fn format_property(prop: ical.Property) -> String {
   let name = prop.name |> ansi.green |> ansi.bold
 
   let params = case prop.params {
