@@ -598,44 +598,50 @@ fn get_tzid(params: List(Parameter)) -> Result(String, ParseError) {
   }
 }
 
-fn parse_int(s: String) -> Result(Int, ParseError) {
-  case int.parse(s) {
-    Ok(n) -> Ok(n)
-    Error(_) -> Error(ParseError("Not an integer: " <> s))
-  }
-}
-
 // Date-only values (VALUE=DATE) have no time component; treat them as
 // midnight UTC so they still produce a valid timestamp.
 fn parse_date_only(value: String) -> Result(Timestamp, ParseError) {
-  case string.length(value) {
-    8 -> {
-      let year = parse_int(string.slice(value, 0, 4))
-      let month = parse_int(string.slice(value, 4, 2))
-      let day = parse_int(string.slice(value, 6, 2))
+  case bit_array.from_string(value) {
+    <<y1, y2, y3, y4, m1, m2, d1, d2>>
+      if y1 >= 48
+      && y1 <= 57
+      && y2 >= 48
+      && y2 <= 57
+      && y3 >= 48
+      && y3 <= 57
+      && y4 >= 48
+      && y4 <= 57
+      && m1 >= 48
+      && m1 <= 57
+      && m2 >= 48
+      && m2 <= 57
+      && d1 >= 48
+      && d1 <= 57
+      && d2 >= 48
+      && d2 <= 57
+    -> {
+      let year =
+        { y1 - 48 } * 1000 + { y2 - 48 } * 100 + { y3 - 48 } * 10 + { y4 - 48 }
+      let month = { m1 - 48 } * 10 + { m2 - 48 }
+      let day = { d1 - 48 } * 10 + { d2 - 48 }
 
-      case year, month, day {
-        Ok(y), Ok(m), Ok(d) -> {
-          case calendar.month_from_int(m) {
-            Ok(month_enum) -> {
-              let date = calendar.Date(y, month_enum, d)
-              case calendar.is_valid_date(date) {
-                True ->
-                  Ok(timestamp.from_calendar(
-                    date,
-                    calendar.TimeOfDay(0, 0, 0, 0),
-                    calendar.utc_offset,
-                  ))
-                False -> Error(ParseError("Invalid date"))
-              }
-            }
-            Error(_) -> Error(ParseError("Invalid month"))
+      case calendar.month_from_int(month) {
+        Ok(month_enum) -> {
+          let date = calendar.Date(year, month_enum, day)
+          case calendar.is_valid_date(date) {
+            True ->
+              Ok(timestamp.from_calendar(
+                date,
+                calendar.TimeOfDay(0, 0, 0, 0),
+                calendar.utc_offset,
+              ))
+            False -> Error(ParseError("Invalid date"))
           }
         }
-        _, _, _ -> Error(ParseError("Invalid date components"))
+        Error(_) -> Error(ParseError("Invalid month"))
       }
     }
-    _ -> Error(ParseError("Date must be 8 characters"))
+    _ -> Error(ParseError("Invalid date format"))
   }
 }
 
