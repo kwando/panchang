@@ -1,0 +1,21 @@
+---
+version: 1.5.5
+title: rfc5545_todo_quebec_tax
+file: ./test/panchang/rfc5545_test.gleam
+test_name: rfc5545_todo_quebec_tax_snapshot_test
+---
+VCALENDAR
+  VERSION: "2.0"
+  PRODID: "-//RFC 5545 Example//EN"
+  BEGIN:VTODO
+    UID: "20070313T123432Z-456553@example.com"
+    DTSTAMP: "20070313T123432Z"
+    DUE
+      VALUE: "DATE"
+      value: "20070501"
+    SUMMARY: "Submit Quebec Income Tax Return for 2006"
+    CLASS: "CONFIDENTIAL"
+    CATEGORIES: "FAMILY,FINANCE"
+    STATUS: "NEEDS-ACTION"
+  END:VTODO
+

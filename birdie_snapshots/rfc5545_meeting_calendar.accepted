@@ -1,0 +1,24 @@
+---
+version: 1.5.5
+title: rfc5545_meeting_calendar
+file: ./test/panchang/rfc5545_test.gleam
+test_name: rfc5545_meeting_calendar_snapshot_test
+---
+Calendar
+  version: "2.0"
+  prodid: "-//ABC Corporation//NONSGML My Product//EN"
+  timezone: "UTC"
+  Event
+    uid: "uid3@example.com"
+    summary: "Calendaring Interoperability Planning Meeting"
+    description: "Discuss how we can test c&s interoperability
+using iCalendar and other IETF standards."
+    location: "LDB Lobby"
+    url: ""
+    dtstart: "1997-03-24T12:30:00Z"
+    dtend: "1997-03-24T21:00:00Z"
+    created: -
+    last_modified: -
+    dtstamp: "1997-03-24T12:00:00Z"
+    is_all_day: False
+

@@ -1,0 +1,22 @@
+---
+version: 1.5.5
+title: rfc5545_anniversary
+file: ./test/panchang/rfc5545_test.gleam
+test_name: rfc5545_anniversary_snapshot_test
+---
+VCALENDAR
+  VERSION: "2.0"
+  PRODID: "-//RFC 5545 Example//EN"
+  BEGIN:VEVENT
+    UID: "19970901T130000Z-123403@example.com"
+    DTSTAMP: "19970901T130000Z"
+    DTSTART
+      VALUE: "DATE"
+      value: "19971102"
+    SUMMARY: "Our Blissful Anniversary"
+    TRANSP: "TRANSPARENT"
+    CLASS: "CONFIDENTIAL"
+    CATEGORIES: "ANNIVERSARY,PERSONAL,SPECIAL OCCASION"
+    RRULE: "FREQ=YEARLY"
+  END:VEVENT
+

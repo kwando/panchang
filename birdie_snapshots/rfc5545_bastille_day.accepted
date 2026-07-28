@@ -1,0 +1,17 @@
+---
+version: 1.5.5
+title: rfc5545_bastille_day
+file: ./test/panchang/rfc5545_test.gleam
+test_name: rfc5545_bastille_day_snapshot_test
+---
+VCALENDAR
+  VERSION: "2.0"
+  PRODID: "-//hacksw/handcal//NONSGML v1.0//EN"
+  BEGIN:VEVENT
+    UID: "19970610T172345Z-AF23B2@example.com"
+    DTSTAMP: "19970610T172345Z"
+    DTSTART: "19970714T170000Z"
+    DTEND: "19970715T040000Z"
+    SUMMARY: "Bastille Day Party"
+  END:VEVENT
+

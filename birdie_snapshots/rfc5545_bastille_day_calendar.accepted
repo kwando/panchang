@@ -1,0 +1,23 @@
+---
+version: 1.5.5
+title: rfc5545_bastille_day_calendar
+file: ./test/panchang/rfc5545_test.gleam
+test_name: rfc5545_bastille_day_calendar_snapshot_test
+---
+Calendar
+  version: "2.0"
+  prodid: "-//hacksw/handcal//NONSGML v1.0//EN"
+  timezone: "UTC"
+  Event
+    uid: "19970610T172345Z-AF23B2@example.com"
+    summary: "Bastille Day Party"
+    description: ""
+    location: ""
+    url: ""
+    dtstart: "1997-07-14T17:00:00Z"
+    dtend: "1997-07-15T04:00:00Z"
+    created: -
+    last_modified: -
+    dtstamp: "1997-06-10T17:23:45Z"
+    is_all_day: False
+

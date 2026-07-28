@@ -1,0 +1,23 @@
+---
+version: 1.5.5
+title: rfc5545_festival_calendar
+file: ./test/panchang/rfc5545_test.gleam
+test_name: rfc5545_festival_calendar_snapshot_test
+---
+Calendar
+  version: "2.0"
+  prodid: "-//RFC 5545 Example//EN"
+  timezone: "UTC"
+  Event
+    uid: "20070423T123432Z-541111@example.com"
+    summary: "Festival International de Jazz de Montreal"
+    description: ""
+    location: ""
+    url: ""
+    dtstart: "2007-06-28T00:00:00Z"
+    dtend: "2007-07-09T00:00:00Z"
+    created: -
+    last_modified: -
+    dtstamp: "2007-04-23T12:34:32Z"
+    is_all_day: True
+

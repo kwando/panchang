@@ -71,8 +71,25 @@ This library is a parser, not a full calendar runtime. It does **not**:
   library does not trigger or manage them.
 - **Fetch calendars from the network** or manage subscriptions.
 
+## Test fixtures
+
+The `test/fixtures/` directory is intended to hold third-party `.ics` test
+calendars used for interoperability testing. Files are not bundled in the
+published package; they are only used during development.
+
+- `test/fixtures/rfc5545/` — examples extracted from RFC 5545, licensed under
+  the IETF Trust Code Components License (Simplified BSD License).
+  See `test/fixtures/rfc5545/LICENSE`.
+- `test/fixtures/icalendar/` — fixtures from the Python `icalendar` project,
+  licensed under the BSD-2-Clause License.
+  See `test/fixtures/icalendar/LICENSE`.
+
 ## Development
 
 ```sh
 gleam test  # Run the tests
 ```
+
+### Todo
+
+- [ ] publish docs on github pages
