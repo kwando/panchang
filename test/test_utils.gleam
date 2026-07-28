@@ -221,10 +221,10 @@ fn participation_status_to_string(status: ical.ParticipationStatus) -> String {
 
 fn role_to_string(role: ical.AttendeeRole) -> String {
   case role {
-    ical.Chair -> "CHAIR"
-    ical.RequiredParticipant -> "REQ-PARTICIPANT"
-    ical.OptionalParticipant -> "OPT-PARTICIPANT"
-    ical.NonParticipant -> "NON-PARTICIPANT"
+    ical.Chair -> "Chair"
+    ical.RequiredParticipant -> "RequiredParticipant"
+    ical.OptionalParticipant -> "OptionalParticipant"
+    ical.NonParticipant -> "NonParticipant"
     ical.OtherRole(raw) -> quote(raw)
   }
 }
