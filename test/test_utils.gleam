@@ -148,10 +148,10 @@ fn render_attendee_value(attendee: ical.Attendee) -> String {
     Some(role) -> ["role=" <> quote(role), ..parts]
     None -> parts
   }
-  let parts = case attendee.partstat {
-    Some(partstat) -> ["partstat=" <> quote(partstat), ..parts]
-    None -> parts
-  }
+  let parts = [
+    "status=" <> participation_status_to_string(attendee.status),
+    ..parts
+  ]
   let parts = case attendee.rsvp {
     Some(rsvp) -> ["rsvp=" <> bool_to_string(rsvp), ..parts]
     None -> parts
@@ -161,6 +161,17 @@ fn render_attendee_value(attendee: ical.Attendee) -> String {
     None -> parts
   }
   "{" <> string.join(list.reverse(parts), ", ") <> "}"
+}
+
+fn participation_status_to_string(status: ical.ParticipationStatus) -> String {
+  case status {
+    ical.NeedsAction -> "NeedsAction"
+    ical.Accepted -> "Accepted"
+    ical.Declined -> "Declined"
+    ical.Tentative -> "Tentative"
+    ical.Delegated -> "Delegated"
+    ical.Other(raw) -> "Other(" <> quote(raw) <> ")"
+  }
 }
 
 fn render_timestamp(ts: Option(timestamp.Timestamp)) -> String {

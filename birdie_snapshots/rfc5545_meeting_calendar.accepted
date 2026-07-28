@@ -18,7 +18,7 @@ using iCalendar and other IETF standards."
     created: -
     last_modified: -
     dtstamp: "1997-03-24T12:00:00Z"
-    organizer: {address="mailto:jdoe@example.com"}
-    attendees: [{address="mailto:jsmith@example.com", rsvp=True}]
+    organizer: {address="mailto:jdoe@example.com", status=NeedsAction}
+    attendees: [{address="mailto:jsmith@example.com", status=NeedsAction, rsvp=True}]
     is_all_day: False
 

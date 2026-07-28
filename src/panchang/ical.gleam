@@ -73,6 +73,21 @@ pub type Event {
   )
 }
 
+/// Participation status of an attendee for a VEVENT, as defined by the
+/// `PARTSTAT` parameter in RFC 5545.
+///
+/// When `PARTSTAT` is missing, `NeedsAction` is used as the default value.
+/// Unrecognized or extension values are preserved via the `Other` variant.
+///
+pub type ParticipationStatus {
+  NeedsAction
+  Accepted
+  Declined
+  Tentative
+  Delegated
+  Other(String)
+}
+
 /// A calendar user associated with an event, parsed from an `ATTENDEE` or
 /// `ORGANIZER` property.
 ///
@@ -89,8 +104,9 @@ pub type Attendee {
     cn: Option(String),
     /// The role (`ROLE` parameter), e.g. `"REQ-PARTICIPANT"` or `"CHAIR"`.
     role: Option(String),
-    /// The participation status (`PARTSTAT` parameter), e.g. `"ACCEPTED"`.
-    partstat: Option(String),
+    /// The participation status (`PARTSTAT` parameter). Defaults to
+    /// `NeedsAction` when not present.
+    status: ParticipationStatus,
     /// Whether a response is requested (`RSVP` parameter).
     rsvp: Option(Bool),
     /// The calendar user type (`CUTYPE` parameter), e.g. `"INDIVIDUAL"`.
@@ -962,10 +978,25 @@ fn attendee_from_property(prop: Property) -> Attendee {
     address: prop.value,
     cn: param_value(prop, "CN"),
     role: param_value(prop, "ROLE"),
-    partstat: param_value(prop, "PARTSTAT"),
+    status: parse_participation_status(param_value(prop, "PARTSTAT")),
     rsvp: param_value(prop, "RSVP") |> option.map(parse_rsvp),
     cutype: param_value(prop, "CUTYPE"),
   )
+}
+
+fn parse_participation_status(value: Option(String)) -> ParticipationStatus {
+  case value {
+    None -> NeedsAction
+    Some(raw) ->
+      case string.uppercase(raw) {
+        "NEEDS-ACTION" -> NeedsAction
+        "ACCEPTED" -> Accepted
+        "DECLINED" -> Declined
+        "TENTATIVE" -> Tentative
+        "DELEGATED" -> Delegated
+        _ -> Other(raw)
+      }
+  }
 }
 
 fn param_value(prop: Property, name: String) -> Option(String) {
