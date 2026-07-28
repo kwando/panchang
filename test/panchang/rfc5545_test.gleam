@@ -56,6 +56,22 @@ pub fn rfc5545_freebusy_reply_snapshot_test() {
   snapshot_tree("freebusy_reply")
 }
 
+pub fn rfc5545_new_york_meeting_snapshot_test() {
+  snapshot_tree("new_york_meeting")
+}
+
+pub fn rfc5545_new_york_meeting_calendar_snapshot_test() {
+  snapshot_calendar("new_york_meeting")
+}
+
+pub fn rfc5545_email_alarm_snapshot_test() {
+  snapshot_tree("email_alarm")
+}
+
+pub fn rfc5545_simple_timezone_snapshot_test() {
+  snapshot_tree("simple_timezone")
+}
+
 fn snapshot_tree(name: String) {
   let assert Ok(input) =
     simplifile.read("test/fixtures/rfc5545/" <> name <> ".ics")

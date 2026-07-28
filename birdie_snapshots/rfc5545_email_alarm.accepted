@@ -1,0 +1,27 @@
+---
+version: 1.5.5
+title: rfc5545_email_alarm
+---
+VCALENDAR
+  VERSION: "2.0"
+  PRODID: "-//RFC 5545 Example//EN"
+  BEGIN:VTODO
+    UID: "20070514T103211Z-123404@example.com"
+    DTSTAMP: "20070514T103211Z"
+    DTSTART: "20070514T110000Z"
+    DUE: "20070709T130000Z"
+    SUMMARY: "Submit Revised Internet-Draft"
+    BEGIN:VALARM
+      TRIGGER
+        RELATED: "END"
+        value: "-P2D"
+      ACTION: "EMAIL"
+      ATTENDEE: "mailto:john_doe@example.com"
+      SUMMARY: "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***"
+      DESCRIPTION: "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file."
+      ATTACH
+        FMTTYPE: "application/msword"
+        value: "http://example.com/templates/agenda.doc"
+    END:VALARM
+  END:VTODO
+
