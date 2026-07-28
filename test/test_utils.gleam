@@ -186,7 +186,12 @@ fn attendee_properties(attendee: ical.Attendee) -> List(#(String, String)) {
     #("address", quote(attendee.address)),
     #("participation", role_to_string(attendee.participation)),
     #("status", participation_status_to_string(attendee.status)),
-    #("response_requested", attendee.response_requested |> option.map(bool.to_string) |> option.unwrap("-")),
+    #(
+      "response_requested",
+      attendee.response_requested
+        |> option.map(bool.to_string)
+        |> option.unwrap("-"),
+    ),
     #("cutype", attendee.cutype |> option.map(quote) |> option.unwrap("-")),
   ]
 }
