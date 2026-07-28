@@ -1,8 +1,6 @@
 ---
 version: 1.5.5
 title: rfc5545_meeting_calendar
-file: ./test/panchang/rfc5545_test.gleam
-test_name: rfc5545_meeting_calendar_snapshot_test
 ---
 Calendar
   version: "2.0"
@@ -20,5 +18,7 @@ using iCalendar and other IETF standards."
     created: -
     last_modified: -
     dtstamp: "1997-03-24T12:00:00Z"
+    organizer: {address="mailto:jdoe@example.com"}
+    attendees: [{address="mailto:jsmith@example.com", rsvp=True}]
     is_all_day: False
 

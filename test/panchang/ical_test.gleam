@@ -524,6 +524,8 @@ pub fn get_property_test() {
       created: None,
       last_modified: None,
       dtstamp: None,
+      organizer: None,
+      attendees: [],
       is_all_day: False,
       raw: [
         ical.Property(
@@ -637,6 +639,8 @@ pub fn get_property_lowercase_search_test() {
       created: None,
       last_modified: None,
       dtstamp: None,
+      organizer: None,
+      attendees: [],
       is_all_day: False,
       raw: [ical.Property("DTSTART", [], "20230101T100000Z")],
     )

@@ -1,8 +1,6 @@
 ---
 version: 1.5.5
 title: rfc5545_festival_calendar
-file: ./test/panchang/rfc5545_test.gleam
-test_name: rfc5545_festival_calendar_snapshot_test
 ---
 Calendar
   version: "2.0"
@@ -19,5 +17,7 @@ Calendar
     created: -
     last_modified: -
     dtstamp: "2007-04-23T12:34:32Z"
+    organizer: -
+    attendees: []
     is_all_day: True
 

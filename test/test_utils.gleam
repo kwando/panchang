@@ -108,6 +108,8 @@ fn render_event(event: ical.Event, depth: Int) -> String {
     #("created", render_timestamp(event.created)),
     #("last_modified", render_timestamp(event.last_modified)),
     #("dtstamp", render_timestamp(event.dtstamp)),
+    #("organizer", render_attendee(event.organizer)),
+    #("attendees", render_attendees(event.attendees)),
     #("is_all_day", bool_to_string(event.is_all_day)),
   ]
   let body =
@@ -116,6 +118,49 @@ fn render_event(event: ical.Event, depth: Int) -> String {
     })
     |> string.concat
   header <> body
+}
+
+fn render_attendees(attendees: List(ical.Attendee)) -> String {
+  case attendees {
+    [] -> "[]"
+    _ ->
+      attendees
+      |> list.map(render_attendee_value)
+      |> string.join(", ")
+      |> fn(s) { "[" <> s <> "]" }
+  }
+}
+
+fn render_attendee(attendee: Option(ical.Attendee)) -> String {
+  case attendee {
+    None -> "-"
+    Some(a) -> render_attendee_value(a)
+  }
+}
+
+fn render_attendee_value(attendee: ical.Attendee) -> String {
+  let parts = ["address=" <> quote(attendee.address)]
+  let parts = case attendee.cn {
+    Some(cn) -> ["cn=" <> quote(cn), ..parts]
+    None -> parts
+  }
+  let parts = case attendee.role {
+    Some(role) -> ["role=" <> quote(role), ..parts]
+    None -> parts
+  }
+  let parts = case attendee.partstat {
+    Some(partstat) -> ["partstat=" <> quote(partstat), ..parts]
+    None -> parts
+  }
+  let parts = case attendee.rsvp {
+    Some(rsvp) -> ["rsvp=" <> bool_to_string(rsvp), ..parts]
+    None -> parts
+  }
+  let parts = case attendee.cutype {
+    Some(cutype) -> ["cutype=" <> quote(cutype), ..parts]
+    None -> parts
+  }
+  "{" <> string.join(list.reverse(parts), ", ") <> "}"
 }
 
 fn render_timestamp(ts: Option(timestamp.Timestamp)) -> String {

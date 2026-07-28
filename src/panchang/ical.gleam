@@ -60,12 +60,41 @@ pub type Event {
     /// The data-instance timestamp. UTC time when this iCalendar object was
     /// generated or revised. Required by RFC 5545 but stored as Option.
     dtstamp: Option(Timestamp),
+    /// The event organizer, if present.
+    organizer: Option(Attendee),
+    /// All attendees (`ATTENDEE` properties) for the event.
+    attendees: List(Attendee),
     /// True when the event uses date-only values (`VALUE=DATE`), indicating
     /// an all-day event.
     is_all_day: Bool,
     /// All original properties for this event, including DTSTART, DTEND,
     /// LOCATION, DESCRIPTION, ATTENDEE, etc.
     raw: List(Property),
+  )
+}
+
+/// A calendar user associated with an event, parsed from an `ATTENDEE` or
+/// `ORGANIZER` property.
+///
+/// The `address` field is the calendar address (typically a `mailto:` URI).
+/// Common parameters like common name, role, and participation status are
+/// extracted into typed fields. Less common parameters remain available via
+/// the original `Property` in `event.raw`.
+///
+pub type Attendee {
+  Attendee(
+    /// The calendar address, e.g. `"mailto:jsmith@example.com"`.
+    address: String,
+    /// The common name (`CN` parameter), if present.
+    cn: Option(String),
+    /// The role (`ROLE` parameter), e.g. `"REQ-PARTICIPANT"` or `"CHAIR"`.
+    role: Option(String),
+    /// The participation status (`PARTSTAT` parameter), e.g. `"ACCEPTED"`.
+    partstat: Option(String),
+    /// Whether a response is requested (`RSVP` parameter).
+    rsvp: Option(Bool),
+    /// The calendar user type (`CUTYPE` parameter), e.g. `"INDIVIDUAL"`.
+    cutype: Option(String),
   )
 }
 
@@ -893,6 +922,9 @@ fn build_event(
   let last_modified = extract_timestamp(props, "LAST-MODIFIED", parser)
   let dtstamp = extract_timestamp(props, "DTSTAMP", parser)
 
+  let organizer = extract_organizer(props)
+  let attendees = extract_attendees(props)
+
   Event(
     uid,
     summary,
@@ -904,9 +936,44 @@ fn build_event(
     created,
     last_modified,
     dtstamp,
+    organizer,
+    attendees,
     is_all_day,
     props,
   )
+}
+
+fn extract_organizer(props: List(Property)) -> Option(Attendee) {
+  list.find(props, fn(p) { name_eq(p.name, "ORGANIZER") })
+  |> option.from_result
+  |> option.map(attendee_from_property)
+}
+
+fn extract_attendees(props: List(Property)) -> List(Attendee) {
+  use p <- list.filter_map(props)
+  case name_eq(p.name, "ATTENDEE") {
+    True -> Ok(attendee_from_property(p))
+    False -> Error(Nil)
+  }
+}
+
+fn attendee_from_property(prop: Property) -> Attendee {
+  Attendee(
+    address: prop.value,
+    cn: param_value(prop, "CN"),
+    role: param_value(prop, "ROLE"),
+    partstat: param_value(prop, "PARTSTAT"),
+    rsvp: param_value(prop, "RSVP") |> option.map(parse_rsvp),
+    cutype: param_value(prop, "CUTYPE"),
+  )
+}
+
+fn param_value(prop: Property, name: String) -> Option(String) {
+  get_parameter(prop, name) |> option.from_result
+}
+
+fn parse_rsvp(value: String) -> Bool {
+  string.uppercase(value) == "TRUE"
 }
 
 // Flatten the parsed component tree into a Calendar. When the caller does not
