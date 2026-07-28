@@ -1,6 +1,7 @@
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/string
+import gleam/time/duration
 import gleam/time/timestamp
 import global_value
 import panchang/ical
@@ -423,6 +424,92 @@ pub fn parse_tree_multiple_roots_test() {
 pub fn parse_tree_empty_test() {
   let input = ""
   let assert Error(_) = ical.parse_tree(ical.new_parser(tzdb()), input)
+}
+
+// ------------------------ duration parsing
+pub fn parse_duration_hour_test() {
+  let assert Ok(dur) = ical.parse_duration("PT1H")
+  assert duration.to_seconds(dur) == 3600.0
+}
+
+pub fn parse_duration_minute_test() {
+  let assert Ok(dur) = ical.parse_duration("PT30M")
+  assert duration.to_seconds(dur) == 1800.0
+}
+
+pub fn parse_duration_day_test() {
+  let assert Ok(dur) = ical.parse_duration("P1D")
+  assert duration.to_seconds(dur) == 86_400.0
+}
+
+pub fn parse_duration_week_test() {
+  let assert Ok(dur) = ical.parse_duration("P1W")
+  assert duration.to_seconds(dur) == 604_800.0
+}
+
+pub fn parse_duration_combined_test() {
+  let assert Ok(dur) = ical.parse_duration("P1DT2H3M4S")
+  assert duration.to_seconds(dur) == 93_784.0
+}
+
+pub fn parse_duration_hour_minute_test() {
+  let assert Ok(dur) = ical.parse_duration("PT1H30M")
+  assert duration.to_seconds(dur) == 5400.0
+}
+
+pub fn parse_duration_hour_minute_second_test() {
+  let assert Ok(dur) = ical.parse_duration("PT1H30M10S")
+  assert duration.to_seconds(dur) == 5410.0
+}
+
+pub fn parse_duration_negative_test() {
+  let assert Ok(dur) = ical.parse_duration("-PT30M")
+  assert duration.to_seconds(dur) == -1800.0
+}
+
+pub fn parse_duration_positive_sign_test() {
+  let assert Ok(dur) = ical.parse_duration("+PT1H")
+  assert duration.to_seconds(dur) == 3600.0
+}
+
+pub fn parse_duration_fractional_seconds_error_test() {
+  let assert Error(_) = ical.parse_duration("PT1.5S")
+}
+
+pub fn parse_duration_lowercase_test() {
+  let assert Ok(dur) = ical.parse_duration("pt1h")
+  assert duration.to_seconds(dur) == 3600.0
+}
+
+pub fn parse_duration_missing_p_test() {
+  let assert Error(_) = ical.parse_duration("T1H")
+}
+
+pub fn parse_duration_invalid_unit_test() {
+  let assert Error(_) = ical.parse_duration("P1X")
+}
+
+pub fn parse_duration_empty_time_after_t_test() {
+  let assert Error(_) = ical.parse_duration("P1DT")
+}
+
+pub fn parse_duration_missing_number_test() {
+  let assert Error(_) = ical.parse_duration("PTM")
+}
+
+pub fn parse_duration_no_t_required_test() {
+  let assert Ok(dur) = ical.parse_duration("P2H")
+  assert duration.to_seconds(dur) == 7200.0
+}
+
+pub fn parse_duration_duplicate_units_test() {
+  let assert Ok(dur) = ical.parse_duration("P2H2H")
+  assert duration.to_seconds(dur) == 14_400.0
+}
+
+pub fn parse_duration_out_of_order_test() {
+  let assert Ok(dur) = ical.parse_duration("P30S2M")
+  assert duration.to_seconds(dur) == 150.0
 }
 
 pub fn get_property_test() {

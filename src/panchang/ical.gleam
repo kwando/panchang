@@ -5,6 +5,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import gleam/time/calendar
+import gleam/time/duration.{type Duration}
 import gleam/time/timestamp.{type Timestamp}
 import splitter
 import tzif/database
@@ -739,6 +740,124 @@ pub fn parse_datetime(
         }
       }
     }
+  }
+}
+
+/// Parse an iCal duration string into a signed `Duration`.
+///
+/// This parser accepts common RFC 5545 duration formats but is intentionally
+/// lenient: time units do not require a leading `T`, units may appear in any
+/// order, duplicate units are summed, and weeks may be combined with other
+/// units.
+///
+/// Supported examples:
+/// - `P1W` (1 week)
+/// - `P1D` (1 day)
+/// - `PT1H` or `P1H` (1 hour)
+/// - `PT30M` (30 minutes)
+/// - `PT1H30M` (1 hour 30 minutes)
+/// - `P1DT2H3M4S` (1 day, 2 hours, 3 minutes, 4 seconds)
+/// - `-PT30M` (negative 30 minutes)
+/// - `P2H2H` (duplicate units are added)
+///
+/// Fractional seconds are rejected and cause a parse error.
+///
+pub fn parse_duration(value: String) -> Result(Duration, ParseError) {
+  let value = string.uppercase(string.trim(value))
+
+  use #(value, sign) <- result.try(case bit_array.from_string(value) {
+    <<"+P", rest:bits>> | <<"P", rest:bits>> -> Ok(#(rest, 1))
+    <<"-P", rest:bits>> -> Ok(#(rest, -1))
+    _ -> Error(ParseError("Invalid duration"))
+  })
+
+  case duration_components(value, 0, False, []) {
+    Ok([]) -> Error(ParseError("Duration value is empty"))
+    Ok(components) -> duration_from_components(components, sign)
+    Error(_) -> Error(ParseError("Invalid duration format"))
+  }
+}
+
+type DurationComponent {
+  Week(Int)
+  Day(Int)
+  Hour(Int)
+  Minute(Int)
+  Second(Int)
+}
+
+fn duration_components(
+  input: BitArray,
+  acc: Int,
+  has_digits: Bool,
+  result: List(DurationComponent),
+) -> Result(List(DurationComponent), Nil) {
+  case input, has_digits {
+    // we reached the end but have accumulated a value
+    <<>>, True -> Error(Nil)
+    <<>>, False -> Ok(list.reverse(result))
+
+    <<"0", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 0, True, result)
+    <<"1", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 1, True, result)
+    <<"2", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 2, True, result)
+    <<"3", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 3, True, result)
+    <<"4", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 4, True, result)
+    <<"5", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 5, True, result)
+    <<"6", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 6, True, result)
+    <<"7", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 7, True, result)
+    <<"8", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 8, True, result)
+    <<"9", rest:bits>>, _ ->
+      duration_components(rest, acc * 10 + 9, True, result)
+
+    // a duration cannot end with a T
+    <<"T">>, _ -> Error(Nil)
+    // T cannot follow a number; it is only a separator before time units
+    <<"T", _:bits>>, True -> Error(Nil)
+    <<"T", rest:bits>>, False -> duration_components(rest, 0, False, result)
+
+    // ----- handle units
+    <<"D", rest:bits>>, True ->
+      duration_components(rest, 0, False, [Day(acc), ..result])
+    <<"H", rest:bits>>, True ->
+      duration_components(rest, 0, False, [Hour(acc), ..result])
+    <<"M", rest:bits>>, True ->
+      duration_components(rest, 0, False, [Minute(acc), ..result])
+    <<"S", rest:bits>>, True ->
+      duration_components(rest, 0, False, [Second(acc), ..result])
+    <<"W", rest:bits>>, True ->
+      duration_components(rest, 0, False, [Week(acc), ..result])
+
+    _, _ -> Error(Nil)
+  }
+}
+
+fn duration_from_components(
+  components: List(DurationComponent),
+  sign: Int,
+) -> Result(Duration, ParseError) {
+  components
+  |> list.fold(0, fn(acc, component) { acc + component_to_seconds(component) })
+  |> int.multiply(sign)
+  |> duration.seconds
+  |> Ok
+}
+
+fn component_to_seconds(unit: DurationComponent) -> Int {
+  case unit {
+    Week(w) -> w * 604_800
+    Day(d) -> d * 86_400
+    Hour(h) -> h * 3600
+    Minute(m) -> m * 60
+    Second(s) -> s
   }
 }
 
