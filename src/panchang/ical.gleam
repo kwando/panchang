@@ -939,6 +939,7 @@ fn build_event(
 
   let dtstart_prop = list.find(props, fn(p) { p.name == "DTSTART" })
   let dtend_prop = list.find(props, fn(p) { p.name == "DTEND" })
+  let duration_prop = list.find(props, fn(p) { p.name == "DURATION" })
 
   let is_all_day =
     dtstart_prop
@@ -949,10 +950,16 @@ fn build_event(
     dtstart_prop
     |> result.map(fn(p) { parse_datetime(p, parser, fallback_tz) })
     |> result.unwrap(timestamp.unix_epoch)
-  let dtend =
-    dtend_prop
-    |> result.map(fn(p) { parse_datetime(p, parser, fallback_tz) })
-    |> result.unwrap(timestamp.unix_epoch)
+  let dtend = case dtend_prop {
+    Ok(prop) -> parse_datetime(prop, parser, fallback_tz)
+    Error(_) -> case duration_prop {
+      Ok(prop) ->
+        parse_duration(prop.value)
+        |> result.map(fn(d) { timestamp.add(dtstart, d) })
+        |> result.unwrap(timestamp.unix_epoch)
+      Error(_) -> timestamp.unix_epoch
+    }
+  }
 
   let created = extract_timestamp(props, "CREATED", parser)
   let last_modified = extract_timestamp(props, "LAST-MODIFIED", parser)

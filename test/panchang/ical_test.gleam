@@ -734,3 +734,45 @@ pub fn parse_multiple_quoted_params_test() {
 fn make_test_parser() -> ical.Parser {
   ical.new_parser(tzdb())
 }
+
+// ------------------------ DTEND/DURATION fallback
+
+pub fn event_dtend_from_duration_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000Z\nDURATION:PT1H\nSUMMARY:Duration event\nUID:duration@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+
+  let #(start_secs, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+  let #(end_secs, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(event.dtend)
+
+  // dtstart = 20230101T100000Z = 1_672_567_200
+  assert start_secs == 1_672_567_200
+  // dtend = dtstart + 1 hour = 1_672_570_800
+  assert end_secs == 1_672_570_800
+}
+
+pub fn event_dtend_prefers_dtend_over_duration_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000Z\nDTEND:20230101T120000Z\nDURATION:PT30M\nSUMMARY:Both dtend and duration\nUID:both@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+
+  let #(end_secs, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(event.dtend)
+
+  // DTEND wins: 20230101T120000Z = 1_672_574_400
+  // If DURATION won, it would be 1_672_569_000 (dtstart + 30m)
+  assert end_secs == 1_672_574_400
+}
+
+pub fn event_dtend_missing_both_test() {
+  let input =
+    "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nDTSTART:20230101T100000Z\nSUMMARY:No dtend no duration\nUID:no-end@test\nEND:VEVENT\nEND:VCALENDAR"
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+
+  assert event.dtend == timestamp.unix_epoch
+}
