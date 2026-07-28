@@ -88,17 +88,17 @@ pub type ParticipationStatus {
   Other(String)
 }
 
-/// Role of an attendee in a calendar component, as defined by the `ROLE`
-/// parameter in RFC 5545.
+/// Expected participation of an attendee in a calendar component, as defined
+/// by the `ROLE` parameter in RFC 5545.
 ///
-/// When `ROLE` is missing, `RequiredParticipant` is used as the default value.
+/// When `ROLE` is missing, `MustAttend` is used as the default value.
 /// Unrecognized or extension values are preserved via the `OtherRole` variant.
 ///
-pub type AttendeeRole {
+pub type AttendeeParticipation {
   Chair
-  RequiredParticipant
-  OptionalParticipant
-  NonParticipant
+  MustAttend
+  MayAttend
+  InformedOnly
   OtherRole(String)
 }
 
@@ -116,13 +116,13 @@ pub type Attendee {
     address: String,
     /// The common name (`CN` parameter), if present.
     cn: Option(String),
-    /// The role (`ROLE` parameter), e.g. `"REQ-PARTICIPANT"` or `"CHAIR"`.
-    role: AttendeeRole,
+    /// The expected participation (`ROLE` parameter), e.g. `"REQ-PARTICIPANT"` or `"CHAIR"`.
+    participation: AttendeeParticipation,
     /// The participation status (`PARTSTAT` parameter). Defaults to
     /// `NeedsAction` when not present.
     status: ParticipationStatus,
-    /// Whether a response is requested (`RSVP` parameter).
-    rsvp: Option(Bool),
+    /// Whether the organizer requests a response from the attendee (`RSVP` parameter).
+    response_requested: Option(Bool),
     /// The calendar user type (`CUTYPE` parameter), e.g. `"INDIVIDUAL"`.
     cutype: Option(String),
   )
@@ -991,9 +991,9 @@ fn attendee_from_property(prop: Property) -> Attendee {
   Attendee(
     address: prop.value,
     cn: param_value(prop, "CN"),
-    role: parse_attendee_role(param_value(prop, "ROLE")),
+    participation: parse_attendee_role(param_value(prop, "ROLE")),
     status: parse_participation_status(param_value(prop, "PARTSTAT")),
-    rsvp: param_value(prop, "RSVP") |> option.map(parse_rsvp),
+    response_requested: param_value(prop, "RSVP") |> option.map(parse_rsvp),
     cutype: param_value(prop, "CUTYPE"),
   )
 }
@@ -1013,15 +1013,15 @@ fn parse_participation_status(value: Option(String)) -> ParticipationStatus {
   }
 }
 
-fn parse_attendee_role(value: Option(String)) -> AttendeeRole {
+fn parse_attendee_role(value: Option(String)) -> AttendeeParticipation {
   case value {
-    None -> RequiredParticipant
+    None -> MustAttend
     Some(raw) ->
       case string.uppercase(raw) {
         "CHAIR" -> Chair
-        "REQ-PARTICIPANT" -> RequiredParticipant
-        "OPT-PARTICIPANT" -> OptionalParticipant
-        "NON-PARTICIPANT" -> NonParticipant
+        "REQ-PARTICIPANT" -> MustAttend
+        "OPT-PARTICIPANT" -> MayAttend
+        "NON-PARTICIPANT" -> InformedOnly
         _ -> OtherRole(raw)
       }
   }

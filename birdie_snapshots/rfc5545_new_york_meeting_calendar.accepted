@@ -19,14 +19,14 @@ Calendar
     dtstamp: "1998-03-09T23:10:00Z"
     organizer:
       address: "mailto:mrbig@example.com"
-      role: RequiredParticipant
+      participation: MustAttend
       status: NeedsAction
-      rsvp: -
+      response_requested: -
       cutype: -
     attendees:
       - address: "mailto:employee-A@example.com"
-        role: RequiredParticipant
+        participation: MustAttend
         status: NeedsAction
-        rsvp: True
+        response_requested: True
         cutype: "GROUP"
     is_all_day: False
