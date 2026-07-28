@@ -88,6 +88,20 @@ pub type ParticipationStatus {
   Other(String)
 }
 
+/// Role of an attendee in a calendar component, as defined by the `ROLE`
+/// parameter in RFC 5545.
+///
+/// When `ROLE` is missing, `RequiredParticipant` is used as the default value.
+/// Unrecognized or extension values are preserved via the `OtherRole` variant.
+///
+pub type AttendeeRole {
+  Chair
+  RequiredParticipant
+  OptionalParticipant
+  NonParticipant
+  OtherRole(String)
+}
+
 /// A calendar user associated with an event, parsed from an `ATTENDEE` or
 /// `ORGANIZER` property.
 ///
@@ -103,7 +117,7 @@ pub type Attendee {
     /// The common name (`CN` parameter), if present.
     cn: Option(String),
     /// The role (`ROLE` parameter), e.g. `"REQ-PARTICIPANT"` or `"CHAIR"`.
-    role: Option(String),
+    role: AttendeeRole,
     /// The participation status (`PARTSTAT` parameter). Defaults to
     /// `NeedsAction` when not present.
     status: ParticipationStatus,
@@ -977,7 +991,7 @@ fn attendee_from_property(prop: Property) -> Attendee {
   Attendee(
     address: prop.value,
     cn: param_value(prop, "CN"),
-    role: param_value(prop, "ROLE"),
+    role: parse_attendee_role(param_value(prop, "ROLE")),
     status: parse_participation_status(param_value(prop, "PARTSTAT")),
     rsvp: param_value(prop, "RSVP") |> option.map(parse_rsvp),
     cutype: param_value(prop, "CUTYPE"),
@@ -995,6 +1009,20 @@ fn parse_participation_status(value: Option(String)) -> ParticipationStatus {
         "TENTATIVE" -> Tentative
         "DELEGATED" -> Delegated
         _ -> Other(raw)
+      }
+  }
+}
+
+fn parse_attendee_role(value: Option(String)) -> AttendeeRole {
+  case value {
+    None -> RequiredParticipant
+    Some(raw) ->
+      case string.uppercase(raw) {
+        "CHAIR" -> Chair
+        "REQ-PARTICIPANT" -> RequiredParticipant
+        "OPT-PARTICIPANT" -> OptionalParticipant
+        "NON-PARTICIPANT" -> NonParticipant
+        _ -> OtherRole(raw)
       }
   }
 }

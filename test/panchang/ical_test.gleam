@@ -557,14 +557,9 @@ pub fn get_parameter_test() {
       "20230101T100000",
     )
 
-  let assert Ok(tz) = ical.get_parameter(prop, "TZID")
-  assert tz == "Europe/Stockholm"
-
-  let assert Ok(val) = ical.get_parameter(prop, "VALUE")
-  assert val == "DATE-TIME"
-
+  let assert Ok("Europe/Stockholm") = ical.get_parameter(prop, "TZID")
+  let assert Ok("DATE-TIME") = ical.get_parameter(prop, "VALUE")
   let assert Error(Nil) = ical.get_parameter(prop, "NONEXISTENT")
-
   let empty_prop = ical.Property("SUMMARY", [], "Meeting")
   let assert Error(Nil) = ical.get_parameter(empty_prop, "TZID")
 }
@@ -578,12 +573,8 @@ pub fn get_property_and_parameter_combined_test() {
   let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
   assert attendee.value == "mailto:john@example.com"
 
-  let assert Ok(cn) = ical.get_parameter(attendee, "CN")
-  assert cn == "John"
-
-  let assert Ok(rsvp) = ical.get_parameter(attendee, "RSVP")
-  assert rsvp == "TRUE"
-
+  let assert Ok("John") = ical.get_parameter(attendee, "CN")
+  let assert Ok("TRUE") = ical.get_parameter(attendee, "RSVP")
   let assert Error(Nil) = ical.get_parameter(attendee, "EMAIL")
 }
 
@@ -622,8 +613,8 @@ pub fn parse_lowercase_parameter_name_test() {
   assert param.name == "TZID"
   assert param.value == "Europe/Stockholm"
 
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
-  assert secs == 1_672_563_600
+  let assert #(1_672_563_600, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
 }
 
 pub fn get_property_lowercase_search_test() {
@@ -658,8 +649,7 @@ pub fn get_parameter_lowercase_search_test() {
       "20230101T100000",
     )
 
-  let assert Ok(tz) = ical.get_parameter(prop, "tzid")
-  assert tz == "Europe/Stockholm"
+  let assert Ok("Europe/Stockholm") = ical.get_parameter(prop, "tzid")
 }
 
 pub fn parse_lowercase_value_date_test() {
@@ -679,8 +669,7 @@ pub fn parse_quoted_param_with_semicolon_test() {
   let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
   assert attendee.value == "mailto:john@example.com"
 
-  let assert Ok(cn) = ical.get_parameter(attendee, "CN")
-  assert cn == "Doe; John"
+  let assert Ok("Doe; John") = ical.get_parameter(attendee, "CN")
 }
 
 pub fn parse_quoted_param_with_colon_test() {
@@ -692,8 +681,7 @@ pub fn parse_quoted_param_with_colon_test() {
   let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
   assert attendee.value == "mailto:john@example.com"
 
-  let assert Ok(cn) = ical.get_parameter(attendee, "CN")
-  assert cn == "Doe: John"
+  let assert Ok("Doe: John") = ical.get_parameter(attendee, "CN")
 }
 
 pub fn parse_quoted_param_with_equals_test() {
@@ -705,8 +693,7 @@ pub fn parse_quoted_param_with_equals_test() {
   let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
   assert attendee.value == "mailto:john@example.com"
 
-  let assert Ok(cn) = ical.get_parameter(attendee, "CN")
-  assert cn == "Doe=John"
+  let assert Ok("Doe=John") = ical.get_parameter(attendee, "CN")
 }
 
 pub fn parse_quoted_param_with_escaped_quote_test() {
@@ -718,8 +705,7 @@ pub fn parse_quoted_param_with_escaped_quote_test() {
   let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
   assert attendee.value == "mailto:john@example.com"
 
-  let assert Ok(cn) = ical.get_parameter(attendee, "CN")
-  assert cn == "Doe\"John"
+  let assert Ok("Doe\"John") = ical.get_parameter(attendee, "CN")
 }
 
 pub fn parse_quoted_param_with_escaped_backslash_test() {
@@ -731,8 +717,7 @@ pub fn parse_quoted_param_with_escaped_backslash_test() {
   let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
   assert attendee.value == "mailto:john@example.com"
 
-  let assert Ok(cn) = ical.get_parameter(attendee, "CN")
-  assert cn == "Doe\\John"
+  let assert Ok("Doe\\John") = ical.get_parameter(attendee, "CN")
 }
 
 pub fn parse_multiple_quoted_params_test() {
@@ -742,12 +727,8 @@ pub fn parse_multiple_quoted_params_test() {
   let assert [event] = calendar.events
 
   let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
-
-  let assert Ok(cn) = ical.get_parameter(attendee, "CN")
-  assert cn == "Doe; John"
-
-  let assert Ok(role) = ical.get_parameter(attendee, "ROLE")
-  assert role == "REQ-PARTICIPANT"
+  let assert Ok("Doe; John") = ical.get_parameter(attendee, "CN")
+  let assert Ok("REQ-PARTICIPANT") = ical.get_parameter(attendee, "ROLE")
 }
 
 fn make_test_parser() -> ical.Parser {

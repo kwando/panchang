@@ -184,7 +184,7 @@ fn render_attendees_block(
 fn attendee_properties(attendee: ical.Attendee) -> List(#(String, String)) {
   [
     #("address", quote(attendee.address)),
-    #("role", attendee.role |> option.map(quote) |> option.unwrap("-")),
+    #("role", role_to_string(attendee.role)),
     #("status", participation_status_to_string(attendee.status)),
     #("rsvp", attendee.rsvp |> option.map(bool.to_string) |> option.unwrap("-")),
     #("cutype", attendee.cutype |> option.map(quote) |> option.unwrap("-")),
@@ -216,6 +216,16 @@ fn participation_status_to_string(status: ical.ParticipationStatus) -> String {
     ical.Tentative -> "Tentative"
     ical.Delegated -> "Delegated"
     ical.Other(raw) -> "Other(" <> quote(raw) <> ")"
+  }
+}
+
+fn role_to_string(role: ical.AttendeeRole) -> String {
+  case role {
+    ical.Chair -> "CHAIR"
+    ical.RequiredParticipant -> "REQ-PARTICIPANT"
+    ical.OptionalParticipant -> "OPT-PARTICIPANT"
+    ical.NonParticipant -> "NON-PARTICIPANT"
+    ical.OtherRole(raw) -> quote(raw)
   }
 }
 
