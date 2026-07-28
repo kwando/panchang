@@ -8,7 +8,7 @@ watch_docs:
     watchexec --clear --debounce 5s -w src gleam docs build
 
 watch_tests:
-    watchexec --clear -w src -w test gleam test
+    watchexec --clear --debounce 200ms -w src -w test gleam test
 
 serve_docs:
     caddy file-server --root build/dev/docs/{{ project_name }}
