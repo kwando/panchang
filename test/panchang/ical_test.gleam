@@ -3,9 +3,8 @@ import gleam/option.{None, Some}
 import gleam/string
 import gleam/time/duration
 import gleam/time/timestamp
-import global_value
 import panchang/ical
-import tzif/database
+import test_utils.{tzdb}
 
 fn ical_parse(input: String) -> Result(ical.Calendar, ical.ParseError) {
   ical.new_parser(tzdb())
@@ -749,11 +748,4 @@ pub fn parse_multiple_quoted_params_test() {
 
 fn make_test_parser() -> ical.Parser {
   ical.new_parser(tzdb())
-}
-
-fn tzdb() {
-  global_value.create_with_unique_name("tzdb", fn() {
-    let assert Ok(tz_db) = database.load_from_os()
-    tz_db
-  })
 }

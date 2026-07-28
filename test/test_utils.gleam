@@ -3,7 +3,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
+import global_value
 import panchang/ical
+import tzif/database
 
 /// Render a parsed iCal component tree to a stable, human-readable string.
 ///
@@ -29,9 +31,15 @@ fn render_children(children: List(ical.Component), depth: Int) -> String {
 
 fn render_child(child: ical.Component, depth: Int) -> String {
   let indent = indent_for(depth)
-  indent <> "BEGIN:" <> child.kind <> "\n"
+  indent
+  <> "BEGIN:"
+  <> child.kind
+  <> "\n"
   <> render_component_body(child, depth + 1)
-  <> indent <> "END:" <> child.kind <> "\n"
+  <> indent
+  <> "END:"
+  <> child.kind
+  <> "\n"
 }
 
 fn render_component_body(component: ical.Component, depth: Int) -> String {
@@ -122,4 +130,16 @@ fn bool_to_string(value: Bool) -> String {
     True -> "True"
     False -> "False"
   }
+}
+
+/// Returns a shared, lazily-initialized timezone database for tests.
+///
+/// The database is loaded once from the operating system and cached under a
+/// unique name so it can be reused across test functions.
+///
+pub fn tzdb() {
+  global_value.create_with_unique_name("tzdb", fn() {
+    let assert Ok(tz_db) = database.load_from_os()
+    tz_db
+  })
 }

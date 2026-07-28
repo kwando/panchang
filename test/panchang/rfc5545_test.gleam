@@ -1,10 +1,8 @@
 import birdie
 import gleam/option
-import global_value
 import panchang/ical
 import simplifile
-import test_utils
-import tzif/database
+import test_utils.{tzdb}
 
 pub fn rfc5545_bastille_day_snapshot_test() {
   snapshot_tree("bastille_day")
@@ -78,11 +76,4 @@ fn snapshot_calendar(name: String) {
   calendar
   |> test_utils.render_calendar
   |> birdie.snap("rfc5545_" <> name <> "_calendar")
-}
-
-fn tzdb() {
-  global_value.create_with_unique_name("tzdb", fn() {
-    let assert Ok(tz_db) = database.load_from_os()
-    tz_db
-  })
 }
