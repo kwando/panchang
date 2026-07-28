@@ -183,18 +183,12 @@ fn render_attendees_block(
 
 fn attendee_properties(attendee: ical.Attendee) -> List(#(String, String)) {
   [
-    #("address", Some(quote(attendee.address))),
-    #("role", attendee.role |> option.map(quote)),
-    #("status", Some(participation_status_to_string(attendee.status))),
-    #("rsvp", attendee.rsvp |> option.map(bool.to_string)),
-    #("cutype", attendee.cutype |> option.map(quote)),
+    #("address", quote(attendee.address)),
+    #("role", attendee.role |> option.map(quote) |> option.unwrap("-")),
+    #("status", participation_status_to_string(attendee.status)),
+    #("rsvp", attendee.rsvp |> option.map(bool.to_string) |> option.unwrap("-")),
+    #("cutype", attendee.cutype |> option.map(quote) |> option.unwrap("-")),
   ]
-  |> list.filter_map(fn(entry) {
-    case entry.1 {
-      Some(value) -> Ok(#(entry.0, value))
-      None -> Error(Nil)
-    }
-  })
 }
 
 fn render_attendee_properties(

@@ -19,7 +19,10 @@ Calendar
     dtstamp: "1998-03-09T23:10:00Z"
     organizer:
       address: "mailto:mrbig@example.com"
+      role: -
       status: NeedsAction
+      rsvp: -
+      cutype: -
     attendees:
       - address: "mailto:employee-A@example.com"
         role: "REQ-PARTICIPANT"

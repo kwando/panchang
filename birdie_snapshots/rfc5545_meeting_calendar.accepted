@@ -20,9 +20,14 @@ using iCalendar and other IETF standards."
     dtstamp: "1997-03-24T12:00:00Z"
     organizer:
       address: "mailto:jdoe@example.com"
+      role: -
       status: NeedsAction
+      rsvp: -
+      cutype: -
     attendees:
       - address: "mailto:jsmith@example.com"
+        role: -
         status: NeedsAction
         rsvp: True
+        cutype: -
     is_all_day: False
