@@ -7,140 +7,77 @@ import test_utils
 import tzif/database
 
 pub fn rfc5545_bastille_day_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/rfc5545/bastille_day.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Ok(root) = ical.parse_tree(parser, input)
-
-  root
-  |> test_utils.render_tree
-  |> birdie.snap("rfc5545_bastille_day")
+  snapshot_tree("bastille_day")
 }
 
 pub fn rfc5545_bastille_day_calendar_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/rfc5545/bastille_day.ics")
-  let assert Ok(calendar) =
-    ical.parse(ical.new_parser(tzdb()), input, option.None)
-
-  calendar
-  |> test_utils.render_calendar
-  |> birdie.snap("rfc5545_bastille_day_calendar")
+  snapshot_calendar("bastille_day")
 }
 
 pub fn rfc5545_meeting_snapshot_test() {
-  let assert Ok(input) = simplifile.read("test/fixtures/rfc5545/meeting.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Ok(root) = ical.parse_tree(parser, input)
-
-  root
-  |> test_utils.render_tree
-  |> birdie.snap("rfc5545_meeting")
+  snapshot_tree("meeting")
 }
 
 pub fn rfc5545_meeting_calendar_snapshot_test() {
-  let assert Ok(input) = simplifile.read("test/fixtures/rfc5545/meeting.ics")
-  let assert Ok(calendar) =
-    ical.parse(ical.new_parser(tzdb()), input, option.None)
-
-  calendar
-  |> test_utils.render_calendar
-  |> birdie.snap("rfc5545_meeting_calendar")
+  snapshot_calendar("meeting")
 }
 
 pub fn rfc5545_todo_alarm_snapshot_test() {
-  let assert Ok(input) = simplifile.read("test/fixtures/rfc5545/todo_alarm.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Ok(root) = ical.parse_tree(parser, input)
-
-  root
-  |> test_utils.render_tree
-  |> birdie.snap("rfc5545_todo_alarm")
+  snapshot_tree("todo_alarm")
 }
 
 pub fn rfc5545_busytime_snapshot_test() {
-  let assert Ok(input) = simplifile.read("test/fixtures/rfc5545/busytime.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Ok(root) = ical.parse_tree(parser, input)
-
-  root
-  |> test_utils.render_tree
-  |> birdie.snap("rfc5545_busytime")
+  snapshot_tree("busytime")
 }
 
 pub fn rfc5545_anniversary_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/rfc5545/anniversary.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Ok(root) = ical.parse_tree(parser, input)
-
-  root
-  |> test_utils.render_tree
-  |> birdie.snap("rfc5545_anniversary")
+  snapshot_tree("anniversary")
 }
 
 pub fn rfc5545_anniversary_calendar_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/rfc5545/anniversary.ics")
-  let assert Ok(calendar) =
-    ical.parse(ical.new_parser(tzdb()), input, option.None)
-
-  calendar
-  |> test_utils.render_calendar
-  |> birdie.snap("rfc5545_anniversary_calendar")
+  snapshot_calendar("anniversary")
 }
 
 pub fn rfc5545_festival_snapshot_test() {
-  let assert Ok(input) = simplifile.read("test/fixtures/rfc5545/festival.ics")
+  snapshot_tree("festival")
+}
+
+pub fn rfc5545_festival_calendar_snapshot_test() {
+  snapshot_calendar("festival")
+}
+
+pub fn rfc5545_todo_quebec_tax_snapshot_test() {
+  snapshot_tree("todo_quebec_tax")
+}
+
+pub fn rfc5545_freebusy_request_snapshot_test() {
+  snapshot_tree("freebusy_request")
+}
+
+pub fn rfc5545_freebusy_reply_snapshot_test() {
+  snapshot_tree("freebusy_reply")
+}
+
+fn snapshot_tree(name: String) {
+  let assert Ok(input) =
+    simplifile.read("test/fixtures/rfc5545/" <> name <> ".ics")
   let parser = ical.new_parser(tzdb())
   let assert Ok(root) = ical.parse_tree(parser, input)
 
   root
   |> test_utils.render_tree
-  |> birdie.snap("rfc5545_festival")
+  |> birdie.snap("rfc5545_" <> name)
 }
 
-pub fn rfc5545_festival_calendar_snapshot_test() {
-  let assert Ok(input) = simplifile.read("test/fixtures/rfc5545/festival.ics")
+fn snapshot_calendar(name: String) {
+  let assert Ok(input) =
+    simplifile.read("test/fixtures/rfc5545/" <> name <> ".ics")
   let assert Ok(calendar) =
     ical.parse(ical.new_parser(tzdb()), input, option.None)
 
   calendar
   |> test_utils.render_calendar
-  |> birdie.snap("rfc5545_festival_calendar")
-}
-
-pub fn rfc5545_todo_quebec_tax_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/rfc5545/todo_quebec_tax.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Ok(root) = ical.parse_tree(parser, input)
-
-  root
-  |> test_utils.render_tree
-  |> birdie.snap("rfc5545_todo_quebec_tax")
-}
-
-pub fn rfc5545_freebusy_request_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/rfc5545/freebusy_request.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Ok(root) = ical.parse_tree(parser, input)
-
-  root
-  |> test_utils.render_tree
-  |> birdie.snap("rfc5545_freebusy_request")
-}
-
-pub fn rfc5545_freebusy_reply_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/rfc5545/freebusy_reply.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Ok(root) = ical.parse_tree(parser, input)
-
-  root
-  |> test_utils.render_tree
-  |> birdie.snap("rfc5545_freebusy_reply")
+  |> birdie.snap("rfc5545_" <> name <> "_calendar")
 }
 
 fn tzdb() {
