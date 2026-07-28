@@ -92,7 +92,7 @@ gleam test  # Run the tests
 
 ### Todo
 
-- [ ] publish docs on github pages
-- [ ] update parsing of dates to use pattern matching
-- [ ] benchmark if matching on ascii bytes is faster than on strings
+- [x] publish docs on github pages
+- [x] update parsing of dates to use pattern matching
+- [x] benchmark if matching on ascii bytes is faster than on strings
 - [x] move tzdb loading to the test_utils module
