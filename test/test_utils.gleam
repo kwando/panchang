@@ -91,14 +91,10 @@ pub fn render_calendar(calendar: ical.Calendar) -> String {
   let prodid = "  prodid: " <> quote(calendar.prodid) <> "\n"
   let timezone = "  timezone: " <> quote(calendar.timezone) <> "\n"
   let events =
-    list.map(calendar.events, render_event(_, 1))
-    |> string.concat
-  header
-  <> version
-  <> prodid
-  <> timezone
-  <> events
-  |> string.trim_end
+    calendar.events
+    |> list.map(render_event(_, 1))
+    |> string.join("\n")
+  header <> version <> prodid <> timezone <> events
 }
 
 fn render_event(event: ical.Event, depth: Int) -> String {
@@ -106,30 +102,36 @@ fn render_event(event: ical.Event, depth: Int) -> String {
   let header = indent <> "Event\n"
   let body =
     [
-      render_field(indent, "uid", quote(event.uid)),
-      render_field(indent, "summary", quote(event.summary)),
-      render_field(indent, "description", quote(event.description)),
-      render_field(indent, "location", quote(event.location)),
-      render_field(indent, "url", quote(event.url)),
-      render_field(indent, "dtstart", render_timestamp(Some(event.dtstart))),
-      render_field(indent, "dtend", render_timestamp(Some(event.dtend))),
-      render_field(indent, "created", render_timestamp(event.created)),
+      render_field(indent, "uid", event.uid, quote),
+      render_field(indent, "summary", event.summary, quote),
+      render_field(indent, "description", event.description, quote),
+      render_field(indent, "location", event.location, quote),
+      render_field(indent, "url", event.url, quote),
+      render_field(indent, "dtstart", Some(event.dtstart), render_timestamp),
+      render_field(indent, "dtend", Some(event.dtend), render_timestamp),
+      render_field(indent, "created", event.created, render_timestamp),
       render_field(
         indent,
         "last_modified",
-        render_timestamp(event.last_modified),
+        event.last_modified,
+        render_timestamp,
       ),
-      render_field(indent, "dtstamp", render_timestamp(event.dtstamp)),
+      render_field(indent, "dtstamp", event.dtstamp, render_timestamp),
       render_organizer_block(indent, event.organizer),
       render_attendees_block(indent, event.attendees),
-      render_field(indent, "is_all_day", bool.to_string(event.is_all_day)),
+      render_field(indent, "is_all_day", event.is_all_day, bool.to_string),
     ]
     |> string.join("\n")
   header <> body
 }
 
-fn render_field(indent: String, key: String, value: String) -> String {
-  indent <> "  " <> key <> ": " <> value
+fn render_field(
+  indent: String,
+  key: String,
+  value: a,
+  mapper: fn(a) -> String,
+) -> String {
+  indent <> "  " <> key <> ": " <> mapper(value)
 }
 
 fn render_organizer_block(
@@ -180,28 +182,19 @@ fn render_attendees_block(
 }
 
 fn attendee_properties(attendee: ical.Attendee) -> List(#(String, String)) {
-  let parts = [#("address", quote(attendee.address))]
-  let parts = case attendee.cn {
-    Some(cn) -> [#("cn", quote(cn)), ..parts]
-    None -> parts
-  }
-  let parts = case attendee.role {
-    Some(role) -> [#("role", quote(role)), ..parts]
-    None -> parts
-  }
-  let parts = [
-    #("status", participation_status_to_string(attendee.status)),
-    ..parts
+  [
+    #("address", Some(quote(attendee.address))),
+    #("role", attendee.role |> option.map(quote)),
+    #("status", Some(participation_status_to_string(attendee.status))),
+    #("rsvp", attendee.rsvp |> option.map(bool.to_string)),
+    #("cutype", attendee.cutype |> option.map(quote)),
   ]
-  let parts = case attendee.rsvp {
-    Some(rsvp) -> [#("rsvp", bool.to_string(rsvp)), ..parts]
-    None -> parts
-  }
-  let parts = case attendee.cutype {
-    Some(cutype) -> [#("cutype", quote(cutype)), ..parts]
-    None -> parts
-  }
-  list.reverse(parts)
+  |> list.filter_map(fn(entry) {
+    case entry.1 {
+      Some(value) -> Ok(#(entry.0, value))
+      None -> Error(Nil)
+    }
+  })
 }
 
 fn render_attendee_properties(
