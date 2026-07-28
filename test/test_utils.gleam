@@ -1,3 +1,4 @@
+import gleam/bool
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
@@ -14,6 +15,7 @@ import tzif/database
 ///
 pub fn render_tree(component: ical.Component) -> String {
   render_component(component, 0)
+  |> string.trim_end
 }
 
 fn render_component(component: ical.Component, depth: Int) -> String {
@@ -91,76 +93,132 @@ pub fn render_calendar(calendar: ical.Calendar) -> String {
   let events =
     list.map(calendar.events, render_event(_, 1))
     |> string.concat
-  header <> version <> prodid <> timezone <> events
+  header
+  <> version
+  <> prodid
+  <> timezone
+  <> events
+  |> string.trim_end
 }
 
 fn render_event(event: ical.Event, depth: Int) -> String {
   let indent = indent_for(depth)
   let header = indent <> "Event\n"
-  let fields = [
-    #("uid", quote(event.uid)),
-    #("summary", quote(event.summary)),
-    #("description", quote(event.description)),
-    #("location", quote(event.location)),
-    #("url", quote(event.url)),
-    #("dtstart", render_timestamp(Some(event.dtstart))),
-    #("dtend", render_timestamp(Some(event.dtend))),
-    #("created", render_timestamp(event.created)),
-    #("last_modified", render_timestamp(event.last_modified)),
-    #("dtstamp", render_timestamp(event.dtstamp)),
-    #("organizer", render_attendee(event.organizer)),
-    #("attendees", render_attendees(event.attendees)),
-    #("is_all_day", bool_to_string(event.is_all_day)),
-  ]
   let body =
-    list.map(fields, fn(field) {
-      indent <> "  " <> field.0 <> ": " <> field.1 <> "\n"
-    })
-    |> string.concat
+    [
+      render_field(indent, "uid", quote(event.uid)),
+      render_field(indent, "summary", quote(event.summary)),
+      render_field(indent, "description", quote(event.description)),
+      render_field(indent, "location", quote(event.location)),
+      render_field(indent, "url", quote(event.url)),
+      render_field(indent, "dtstart", render_timestamp(Some(event.dtstart))),
+      render_field(indent, "dtend", render_timestamp(Some(event.dtend))),
+      render_field(indent, "created", render_timestamp(event.created)),
+      render_field(
+        indent,
+        "last_modified",
+        render_timestamp(event.last_modified),
+      ),
+      render_field(indent, "dtstamp", render_timestamp(event.dtstamp)),
+      render_organizer_block(indent, event.organizer),
+      render_attendees_block(indent, event.attendees),
+      render_field(indent, "is_all_day", bool.to_string(event.is_all_day)),
+    ]
+    |> string.join("\n")
   header <> body
 }
 
-fn render_attendees(attendees: List(ical.Attendee)) -> String {
+fn render_field(indent: String, key: String, value: String) -> String {
+  indent <> "  " <> key <> ": " <> value
+}
+
+fn render_organizer_block(
+  indent: String,
+  organizer: Option(ical.Attendee),
+) -> String {
+  let field_indent = indent <> "  "
+  case organizer {
+    None -> field_indent <> "organizer: -"
+    Some(attendee) ->
+      field_indent
+      <> "organizer:\n"
+      <> render_attendee_properties(attendee, field_indent <> "  ")
+      |> string.trim_end
+  }
+}
+
+fn render_attendees_block(
+  indent: String,
+  attendees: List(ical.Attendee),
+) -> String {
+  let field_indent = indent <> "  "
   case attendees {
-    [] -> "[]"
-    _ ->
-      attendees
-      |> list.map(render_attendee_value)
-      |> string.join(", ")
-      |> fn(s) { "[" <> s <> "]" }
+    [] -> field_indent <> "attendees: []"
+    _ -> {
+      let items =
+        list.map(attendees, fn(attendee) {
+          let item_indent = field_indent <> "  "
+          let props = attendee_properties(attendee)
+          case props {
+            [] -> item_indent <> "-\n"
+            [#(key, value), ..rest] -> {
+              let first = item_indent <> "- " <> key <> ": " <> value <> "\n"
+              let rest_lines =
+                list.map(rest, fn(prop) {
+                  item_indent <> "  " <> prop.0 <> ": " <> prop.1 <> "\n"
+                })
+                |> string.concat
+              first <> rest_lines
+            }
+          }
+        })
+        |> string.concat
+        |> string.trim_end
+      field_indent <> "attendees:\n" <> items
+    }
   }
 }
 
-fn render_attendee(attendee: Option(ical.Attendee)) -> String {
-  case attendee {
-    None -> "-"
-    Some(a) -> render_attendee_value(a)
-  }
-}
-
-fn render_attendee_value(attendee: ical.Attendee) -> String {
-  let parts = ["address=" <> quote(attendee.address)]
+fn attendee_properties(attendee: ical.Attendee) -> List(#(String, String)) {
+  let parts = [#("address", quote(attendee.address))]
   let parts = case attendee.cn {
-    Some(cn) -> ["cn=" <> quote(cn), ..parts]
+    Some(cn) -> [#("cn", quote(cn)), ..parts]
     None -> parts
   }
   let parts = case attendee.role {
-    Some(role) -> ["role=" <> quote(role), ..parts]
+    Some(role) -> [#("role", quote(role)), ..parts]
     None -> parts
   }
   let parts = [
-    "status=" <> participation_status_to_string(attendee.status),
+    #("status", participation_status_to_string(attendee.status)),
     ..parts
   ]
   let parts = case attendee.rsvp {
-    Some(rsvp) -> ["rsvp=" <> bool_to_string(rsvp), ..parts]
+    Some(rsvp) -> [#("rsvp", bool.to_string(rsvp)), ..parts]
     None -> parts
   }
   let parts = case attendee.cutype {
-    Some(cutype) -> ["cutype=" <> quote(cutype), ..parts]
+    Some(cutype) -> [#("cutype", quote(cutype)), ..parts]
     None -> parts
   }
-  "{" <> string.join(list.reverse(parts), ", ") <> "}"
+  list.reverse(parts)
+}
+
+fn render_attendee_properties(
+  attendee: ical.Attendee,
+  prop_indent: String,
+) -> String {
+  attendee_properties(attendee)
+  |> list.map(fn(prop) { render_attendee_property(prop_indent, prop.0, prop.1) })
+  |> string.concat
+}
+
+fn render_attendee_property(
+  indent: String,
+  key: String,
+  value: String,
+) -> String {
+  indent <> key <> ": " <> value <> "\n"
 }
 
 fn participation_status_to_string(status: ical.ParticipationStatus) -> String {
@@ -178,13 +236,6 @@ fn render_timestamp(ts: Option(timestamp.Timestamp)) -> String {
   case ts {
     Some(t) -> quote(timestamp.to_rfc3339(t, calendar.utc_offset))
     None -> "-"
-  }
-}
-
-fn bool_to_string(value: Bool) -> String {
-  case value {
-    True -> "True"
-    False -> "False"
   }
 }
 

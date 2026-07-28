@@ -17,7 +17,13 @@ Calendar
     created: "1998-03-09T13:00:00Z"
     last_modified: -
     dtstamp: "1998-03-09T23:10:00Z"
-    organizer: {address="mailto:mrbig@example.com", status=NeedsAction}
-    attendees: [{address="mailto:employee-A@example.com", role="REQ-PARTICIPANT", status=NeedsAction, rsvp=True, cutype="GROUP"}]
+    organizer:
+      address: "mailto:mrbig@example.com"
+      status: NeedsAction
+    attendees:
+      - address: "mailto:employee-A@example.com"
+        role: "REQ-PARTICIPANT"
+        status: NeedsAction
+        rsvp: True
+        cutype: "GROUP"
     is_all_day: False
-

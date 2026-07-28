@@ -28,4 +28,3 @@ using iCalendar and other IETF standards."
       FMTTYPE: "application/postscript"
       value: "ftp://example.com/pub/conf/bkgrnd.ps"
   END:VEVENT
-

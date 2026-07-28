@@ -16,4 +16,3 @@ VCALENDAR
     URL: "http://example.com/pub/busy/jpublic-01.ifb"
     COMMENT: "This iCalendar file contains busy time information for the next three months."
   END:VFREEBUSY
-

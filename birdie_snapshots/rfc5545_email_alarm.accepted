@@ -24,4 +24,3 @@ VCALENDAR
         value: "http://example.com/templates/agenda.doc"
     END:VALARM
   END:VTODO
-

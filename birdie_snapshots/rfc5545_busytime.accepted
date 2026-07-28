@@ -16,4 +16,3 @@ VCALENDAR
     FREEBUSY: "19980318T030000Z/19980318T040000Z"
     URL: "http://www.example.com/calendar/busytime/jsmith.ifb"
   END:VFREEBUSY
-
