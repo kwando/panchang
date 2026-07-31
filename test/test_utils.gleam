@@ -110,8 +110,8 @@ fn render_event(event: ical.Event, depth: Int) -> String {
       render_field(indent, "description", event.description, quote),
       render_field(indent, "location", event.location, quote),
       render_field(indent, "url", event.url, quote),
-      render_field(indent, "dtstart", Some(event.dtstart), render_timestamp),
-      render_field(indent, "dtend", Some(event.dtend), render_timestamp),
+      render_field(indent, "start_time", Some(event.start_time), render_timestamp),
+      render_field(indent, "end_time", Some(event.end_time), render_timestamp),
       render_field(indent, "created", event.created, render_timestamp),
       render_field(
         indent,
@@ -119,10 +119,10 @@ fn render_event(event: ical.Event, depth: Int) -> String {
         event.last_modified,
         render_timestamp,
       ),
-      render_field(indent, "dtstamp", event.dtstamp, render_timestamp),
+      render_field(indent, "generated_at", event.generated_at, render_timestamp),
       render_organizer_block(indent, event.organizer),
       render_attendees_block(indent, event.attendees),
-      render_field(indent, "is_all_day", event.is_all_day, bool.to_string),
+      render_field(indent, "all_day", event.all_day, bool.to_string),
     ]
     |> string.join("\n")
   header <> body

@@ -49,27 +49,27 @@ pub type Event {
     url: String,
     /// The start time as an unambiguous timestamp. Returns `unix_epoch` if
     /// missing or unparseable.
-    dtstart: Timestamp,
+    start_time: Timestamp,
     /// The end time as an unambiguous timestamp. Returns `unix_epoch` if
     /// missing or unparseable.
-    dtend: Timestamp,
+    end_time: Timestamp,
     /// The creation timestamp, if present.
     created: Option(Timestamp),
     /// The last-modified timestamp, if present.
     last_modified: Option(Timestamp),
     /// The data-instance timestamp. UTC time when this iCalendar object was
     /// generated or revised. Required by RFC 5545 but stored as Option.
-    dtstamp: Option(Timestamp),
+    generated_at: Option(Timestamp),
     /// The event organizer, if present.
     organizer: Option(Attendee),
     /// All attendees (`ATTENDEE` properties) for the event.
     attendees: List(Attendee),
     /// True when the event uses date-only values (`VALUE=DATE`), indicating
     /// an all-day event.
-    is_all_day: Bool,
+    all_day: Bool,
     /// All original properties for this event, including DTSTART, DTEND,
     /// LOCATION, DESCRIPTION, ATTENDEE, etc.
-    raw: List(Property),
+    properties: List(Property),
   )
 }
 
@@ -108,7 +108,7 @@ pub type AttendeeParticipation {
 /// The `address` field is the calendar address (typically a `mailto:` URI).
 /// Common parameters like common name, role, and participation status are
 /// extracted into typed fields. Less common parameters remain available via
-/// the original `Property` in `event.raw`.
+/// the original `Property` in `event.properties`.
 ///
 pub type Attendee {
   Attendee(
@@ -540,7 +540,7 @@ fn do_unescape_text(input: BitArray, acc: BitArray) -> BitArray {
 /// ```
 ///
 pub fn get_property(event: Event, name: String) -> Result(Property, Nil) {
-  list.find(event.raw, fn(prop) { name_eq(prop.name, name) })
+  list.find(event.properties, fn(prop) { name_eq(prop.name, name) })
 }
 
 // Property, parameter and component names are case-insensitive per RFC 5545.
@@ -941,21 +941,21 @@ fn build_event(
   let dtend_prop = list.find(props, fn(p) { p.name == "DTEND" })
   let duration_prop = list.find(props, fn(p) { p.name == "DURATION" })
 
-  let is_all_day =
+  let all_day =
     dtstart_prop
     |> result.map(fn(p) { has_param_value_date(p.params) })
     |> result.unwrap(False)
 
-  let dtstart =
+  let start_time =
     dtstart_prop
     |> result.map(fn(p) { parse_datetime(p, parser, fallback_tz) })
     |> result.unwrap(timestamp.unix_epoch)
-  let dtend = case dtend_prop {
+  let end_time = case dtend_prop {
     Ok(prop) -> parse_datetime(prop, parser, fallback_tz)
     Error(_) -> case duration_prop {
       Ok(prop) ->
         parse_duration(prop.value)
-        |> result.map(fn(d) { timestamp.add(dtstart, d) })
+        |> result.map(fn(d) { timestamp.add(start_time, d) })
         |> result.unwrap(timestamp.unix_epoch)
       Error(_) -> timestamp.unix_epoch
     }
@@ -963,7 +963,7 @@ fn build_event(
 
   let created = extract_timestamp(props, "CREATED", parser)
   let last_modified = extract_timestamp(props, "LAST-MODIFIED", parser)
-  let dtstamp = extract_timestamp(props, "DTSTAMP", parser)
+  let generated_at = extract_timestamp(props, "DTSTAMP", parser)
 
   let organizer = extract_organizer(props)
   let attendees = extract_attendees(props)
@@ -974,14 +974,14 @@ fn build_event(
     description,
     location,
     url,
-    dtstart,
-    dtend,
+    start_time,
+    end_time,
     created,
     last_modified,
-    dtstamp,
+    generated_at,
     organizer,
     attendees,
-    is_all_day,
+    all_day,
     props,
   )
 }

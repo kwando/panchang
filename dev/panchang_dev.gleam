@@ -60,7 +60,7 @@ fn error_to_string(error: Error) {
 fn prettify_calendar(calendar: ical.Calendar) -> Result(String, Error) {
   let events =
     calendar.events
-    |> list.sort(fn(a, b) { timestamp.compare(a.dtstart, b.dtstart) })
+    |> list.sort(fn(a, b) { timestamp.compare(a.start_time, b.start_time) })
   list.map(events, format_event)
   |> string.join("\n--------------------------------------\n")
   |> Ok
@@ -74,11 +74,11 @@ pub fn format_event(event: ical.Event) -> String {
     <> "\n"
 
   let times =
-    timestamp.to_rfc3339(event.dtstart, calendar.utc_offset)
+    timestamp.to_rfc3339(event.start_time, calendar.utc_offset)
     <> " -> "
-    <> timestamp.to_rfc3339(event.dtend, calendar.utc_offset)
+    <> timestamp.to_rfc3339(event.end_time, calendar.utc_offset)
 
-  let all_day_flag = case event.is_all_day {
+  let all_day_flag = case event.all_day {
     True -> " (all day)" |> ansi.dim
     False -> ""
   }
@@ -86,7 +86,7 @@ pub fn format_event(event: ical.Event) -> String {
   let props_header = "\n" <> "Properties:" |> ansi.dim <> "\n"
 
   let props =
-    event.raw
+    event.properties
     |> list.map(format_property)
     |> string.join("\n")
 

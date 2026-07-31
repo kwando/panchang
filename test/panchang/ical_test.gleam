@@ -52,7 +52,7 @@ pub fn parse_calendar_with_one_event_test() {
   assert event.url == ""
   assert event.created == None
   assert event.last_modified == None
-  assert event.dtstamp == None
+  assert event.generated_at == None
 }
 
 pub fn parse_event_with_location_test() {
@@ -74,7 +74,7 @@ pub fn parse_event_with_location_test() {
   assert event.summary == "Conference"
 
   let assert Ok(loc) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "LOCATION" })
+    list.find(event.properties, fn(p: ical.Property) { p.name == "LOCATION" })
   assert loc.value == "Stockholm"
 }
 
@@ -96,11 +96,11 @@ pub fn parse_event_with_parameters_test() {
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
-  assert event.dtstart != timestamp.unix_epoch
-  assert event.dtend != timestamp.unix_epoch
+  assert event.start_time != timestamp.unix_epoch
+  assert event.end_time != timestamp.unix_epoch
 
   let assert Ok(dtstart_prop) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "DTSTART" })
+    list.find(event.properties, fn(p: ical.Property) { p.name == "DTSTART" })
 
   let assert [param] = dtstart_prop.params
   assert param.name == "TZID"
@@ -126,9 +126,9 @@ pub fn parse_event_with_dtstart_dtend_test() {
   let assert [event] = calendar.events
 
   let #(start_secs, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+    timestamp.to_unix_seconds_and_nanoseconds(event.start_time)
   assert start_secs == 1_672_567_200
-  assert event.is_all_day == False
+  assert event.all_day == False
 }
 
 // verify multiple VEVENT components are all parsed into events
@@ -176,7 +176,7 @@ pub fn parse_folded_lines_test() {
   let assert [event] = calendar.events
 
   let assert Ok(desc) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "DESCRIPTION" })
+    list.find(event.properties, fn(p: ical.Property) { p.name == "DESCRIPTION" })
   assert desc.value == "This is a long description that spans multiple lines"
 }
 
@@ -212,7 +212,7 @@ pub fn parse_escaped_text_test() {
   let get_desc = fn(uid) {
     let assert Ok(event) = list.find(events, fn(e) { e.uid == uid })
     let assert Ok(prop) =
-      list.find(event.raw, fn(p: ical.Property) { p.name == "DESCRIPTION" })
+      list.find(event.properties, fn(p: ical.Property) { p.name == "DESCRIPTION" })
     prop.value
   }
 
@@ -294,7 +294,7 @@ pub fn parse_property_with_params_in_raw_test() {
   let assert [event] = calendar.events
 
   let assert Ok(loc_prop) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "LOCATION" })
+    list.find(event.properties, fn(p: ical.Property) { p.name == "LOCATION" })
 
   let assert [fmt] = loc_prop.params
   assert fmt.name == "FMTTYPE"
@@ -425,7 +425,7 @@ pub fn parse_calendar_with_timezone_test() {
   assert calendar.timezone == "Europe/Stockholm"
 
   let assert [event] = calendar.events
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.start_time)
   assert secs == 1_672_563_600
 }
 
@@ -450,7 +450,7 @@ pub fn parse_with_timezone_test() {
   assert calendar.timezone == "America/New_York"
 
   let assert [event] = calendar.events
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.start_time)
   assert secs == 1_672_585_200
 }
 
@@ -476,7 +476,7 @@ pub fn event_is_all_day_test() {
       END:VCALENDAR
       "
     |> test_utils.trim_margin
-  assert parse(input).is_all_day == True
+  assert parse(input).all_day == True
 
   let input_lower =
     "
@@ -492,7 +492,7 @@ pub fn event_is_all_day_test() {
       END:VCALENDAR
       "
     |> test_utils.trim_margin
-  assert parse(input_lower).is_all_day == True
+  assert parse(input_lower).all_day == True
 }
 
 // verify a timed event with TZID is not marked as all-day
@@ -513,10 +513,10 @@ pub fn event_not_all_day_with_tzid_test() {
     |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
-  assert event.is_all_day == False
+  assert event.all_day == False
 }
 
-// verify description, location, url, created, last-modified, and dtstamp fields
+// verify description, location, url, created, last-modified, and generated_at fields
 pub fn parse_event_details_test() {
   let input =
     "
@@ -568,10 +568,10 @@ pub fn parse_event_details_test() {
     timestamp.to_unix_seconds_and_nanoseconds(last_modified)
   assert modified_secs == 1_672_650_000
 
-  let assert Ok(dstamp) = list.find(events, fn(e) { e.uid == "dtstamp@test" })
-  let assert Some(dtstamp) = dstamp.dtstamp
-  let #(dtstamp_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(dtstamp)
-  assert dtstamp_secs == 1_672_574_400
+  let assert Ok(ds) = list.find(events, fn(e) { e.uid == "dtstamp@test" })
+  let assert Some(generated_at) = ds.generated_at
+  let #(gen_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(generated_at)
+  assert gen_secs == 1_672_574_400
 }
 
 // parse a calendar as a tree, verify root component kind and properties
@@ -783,7 +783,7 @@ pub fn parse_duration_out_of_order_test() {
   assert duration.to_seconds(dur) == 150.0
 }
 
-// get_property finds a property by name from raw, returns Error for missing names
+// get_property finds a property by name from event.properties, returns Error for missing names
 pub fn get_property_test() {
   let event =
     ical.Event(
@@ -792,15 +792,15 @@ pub fn get_property_test() {
       description: "",
       location: "",
       url: "",
-      dtstart: timestamp.unix_epoch,
-      dtend: timestamp.unix_epoch,
+      start_time: timestamp.unix_epoch,
+      end_time: timestamp.unix_epoch,
       created: None,
       last_modified: None,
-      dtstamp: None,
+      generated_at: None,
       organizer: None,
       attendees: [],
-      is_all_day: False,
-      raw: [
+      all_day: False,
+      properties: [
         ical.Property(
           "DTSTART",
           [ical.Parameter("TZID", "Europe/Stockholm")],
@@ -918,12 +918,12 @@ pub fn parse_lowercase_property_names_test() {
   let assert Ok(param_event) =
     list.find(events, fn(e) { e.uid == "lowercase-param@test" })
   let assert Ok(dtstart_prop) =
-    list.find(param_event.raw, fn(p: ical.Property) { p.name == "DTSTART" })
+    list.find(param_event.properties, fn(p: ical.Property) { p.name == "DTSTART" })
   let assert [p] = dtstart_prop.params
   assert p.name == "TZID"
   assert p.value == "Europe/Stockholm"
   let assert #(1_672_563_600, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(param_event.dtstart)
+    timestamp.to_unix_seconds_and_nanoseconds(param_event.start_time)
 }
 
 // get_property is case-insensitive when searching by name
@@ -935,15 +935,15 @@ pub fn get_property_lowercase_search_test() {
       description: "",
       location: "",
       url: "",
-      dtstart: timestamp.unix_epoch,
-      dtend: timestamp.unix_epoch,
+      start_time: timestamp.unix_epoch,
+      end_time: timestamp.unix_epoch,
       created: None,
       last_modified: None,
-      dtstamp: None,
+      generated_at: None,
       organizer: None,
       attendees: [],
-      is_all_day: False,
-      raw: [ical.Property("DTSTART", [], "20230101T100000Z")],
+      all_day: False,
+      properties: [ical.Property("DTSTART", [], "20230101T100000Z")],
     )
 
   let assert Ok(prop) = ical.get_property(event, "dtstart")
@@ -1065,13 +1065,13 @@ pub fn event_dtend_tests() {
   let events = calendar.events
 
   let assert Ok(dur) = list.find(events, fn(e) { e.uid == "duration@test" })
-  let #(dur_end, _) = timestamp.to_unix_seconds_and_nanoseconds(dur.dtend)
+  let #(dur_end, _) = timestamp.to_unix_seconds_and_nanoseconds(dur.end_time)
   assert dur_end == 1_672_570_800
 
   let assert Ok(both) = list.find(events, fn(e) { e.uid == "both@test" })
-  let #(both_end, _) = timestamp.to_unix_seconds_and_nanoseconds(both.dtend)
+  let #(both_end, _) = timestamp.to_unix_seconds_and_nanoseconds(both.end_time)
   assert both_end == 1_672_574_400
 
   let assert Ok(no_end) = list.find(events, fn(e) { e.uid == "no-end@test" })
-  assert no_end.dtend == timestamp.unix_epoch
+  assert no_end.end_time == timestamp.unix_epoch
 }

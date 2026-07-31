@@ -12,11 +12,11 @@ Calendar
     description: ""
     location: ""
     url: ""
-    dtstart: "1997-07-14T17:00:00Z"
-    dtend: "1997-07-15T04:00:00Z"
+    start_time: "1997-07-14T17:00:00Z"
+    end_time: "1997-07-15T04:00:00Z"
     created: -
     last_modified: -
-    dtstamp: "1997-06-10T17:23:45Z"
+    generated_at: "1997-06-10T17:23:45Z"
     organizer: -
     attendees: []
-    is_all_day: False
+    all_day: False
