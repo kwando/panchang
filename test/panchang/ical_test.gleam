@@ -131,6 +131,7 @@ pub fn parse_event_with_dtstart_dtend_test() {
   assert event.is_all_day == False
 }
 
+// verify multiple VEVENT components are all parsed into events
 pub fn parse_multiple_events_test() {
   let input =
     "
@@ -155,6 +156,7 @@ pub fn parse_multiple_events_test() {
   assert e2.summary == "Event 2"
 }
 
+// verify RFC 5545 line folding (continuation lines starting with space) is unfolded correctly
 pub fn parse_folded_lines_test() {
   let input =
     "
@@ -178,6 +180,7 @@ pub fn parse_folded_lines_test() {
   assert desc.value == "This is a long description that spans multiple lines"
 }
 
+// verify escape sequences: \\n, \\N (newline), \\: (colon), \\\\n (literal \\n not newline)
 pub fn parse_escaped_text_test() {
   let input =
     "
@@ -188,66 +191,14 @@ pub fn parse_escaped_text_test() {
       DESCRIPTION:Line 1\\nLine 2 with\\, comma
       UID:esc@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(desc) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "DESCRIPTION" })
-  assert string.contains(desc.value, "\n")
-  assert string.contains(desc.value, ",")
-}
-
-pub fn parse_escaped_capital_newline_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       DESCRIPTION:Line 1\\NLine 2
       UID:esc-capital@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(desc) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "DESCRIPTION" })
-  assert string.contains(desc.value, "\n")
-}
-
-pub fn parse_escaped_colon_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       DESCRIPTION:Time\\: 10
       UID:esc-colon@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(desc) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "DESCRIPTION" })
-  assert string.contains(desc.value, "Time: 10")
-}
-
-pub fn parse_escaped_backslash_before_newline_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       DESCRIPTION:literal backslash and n\\\\n not a newline
       UID:esc-backslash-n@test
@@ -256,14 +207,28 @@ pub fn parse_escaped_backslash_before_newline_test() {
       "
     |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
+  let events = calendar.events
 
-  let assert Ok(desc) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "DESCRIPTION" })
-  assert string.contains(desc.value, "\\n")
-  assert False == string.contains(desc.value, "literal backslash and n\n")
+  let get_desc = fn(uid) {
+    let assert Ok(event) = list.find(events, fn(e) { e.uid == uid })
+    let assert Ok(prop) =
+      list.find(event.raw, fn(p: ical.Property) { p.name == "DESCRIPTION" })
+    prop.value
+  }
+
+  assert string.contains(get_desc("esc@test"), "\n")
+  assert string.contains(get_desc("esc@test"), ",")
+  assert string.contains(get_desc("esc-capital@test"), "\n")
+  assert string.contains(get_desc("esc-colon@test"), "Time: 10")
+  assert string.contains(get_desc("esc-backslash-n@test"), "\\n")
+  assert False
+    == string.contains(
+      get_desc("esc-backslash-n@test"),
+      "literal backslash and n\n",
+    )
 }
 
+// verify empty SUMMARY value is preserved as empty string
 pub fn parse_empty_summary_test() {
   let input =
     "
@@ -282,6 +247,7 @@ pub fn parse_empty_summary_test() {
   assert event.summary == ""
 }
 
+// parse a real-world iCloud Calendar export, verify version, prodid, summary, uid
 pub fn parse_real_ical_file_test() {
   let input =
     "
@@ -309,6 +275,7 @@ pub fn parse_real_ical_file_test() {
   assert event.uid == "001E66D2-7DF8-40A8-B0BC-EBC4E3F9C2FD"
 }
 
+// verify properties with parameters (e.g. FMTTYPE) are available in raw properties
 pub fn parse_property_with_params_in_raw_test() {
   let input =
     "
@@ -335,6 +302,7 @@ pub fn parse_property_with_params_in_raw_test() {
   assert loc_prop.value == "Conference Room"
 }
 
+// parse a UTC datetime string (ending in Z)
 pub fn parse_datetime_utc_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000Z")
   let parser = make_test_parser()
@@ -343,6 +311,7 @@ pub fn parse_datetime_utc_test() {
   assert secs == 1_672_567_200
 }
 
+// parse a datetime with TZID=Europe/Stockholm in winter (CET, UTC+1)
 pub fn parse_datetime_tzid_winter_test() {
   let param = ical.Parameter("TZID", "Europe/Stockholm")
   let prop = ical.Property("DTSTART", [param], "20230101T100000")
@@ -352,6 +321,7 @@ pub fn parse_datetime_tzid_winter_test() {
   assert secs == 1_672_563_600
 }
 
+// parse a datetime with TZID=Europe/Stockholm in summer (CEST, UTC+2)
 pub fn parse_datetime_tzid_summer_test() {
   let param = ical.Parameter("TZID", "Europe/Stockholm")
   let prop = ical.Property("DTSTART", [param], "20230601T100000")
@@ -361,6 +331,7 @@ pub fn parse_datetime_tzid_summer_test() {
   assert secs == 1_685_606_400
 }
 
+// parse a DATE-only value (no time component, VALUE=DATE)
 pub fn parse_datetime_date_only_test() {
   let param = ical.Parameter("VALUE", "DATE")
   let prop = ical.Property("DTSTART", [param], "20230101")
@@ -370,6 +341,7 @@ pub fn parse_datetime_date_only_test() {
   assert secs == 1_672_531_200
 }
 
+// parse a floating datetime (no Z, no TZID) with an explicit timezone override (Europe/Stockholm)
 pub fn parse_datetime_floating_with_tz_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000")
   let parser = make_test_parser()
@@ -378,6 +350,7 @@ pub fn parse_datetime_floating_with_tz_test() {
   assert secs == 1_672_563_600
 }
 
+// parse a floating datetime treated as UTC (no timezone override)
 pub fn parse_datetime_floating_as_utc_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000")
   let parser = make_test_parser()
@@ -386,6 +359,7 @@ pub fn parse_datetime_floating_as_utc_test() {
   assert secs == 1_672_567_200
 }
 
+// parse an invalid datetime string returns unix_epoch
 pub fn parse_datetime_invalid_test() {
   let prop = ical.Property("DTSTART", [], "not-a-date")
   let parser = make_test_parser()
@@ -393,6 +367,7 @@ pub fn parse_datetime_invalid_test() {
   assert ts == timestamp.unix_epoch
 }
 
+// parse an empty datetime string returns unix_epoch
 pub fn parse_datetime_empty_test() {
   let prop = ical.Property("DTSTART", [], "")
   let parser = make_test_parser()
@@ -400,6 +375,7 @@ pub fn parse_datetime_empty_test() {
   assert ts == timestamp.unix_epoch
 }
 
+// parse a UTC datetime with lowercase "z" suffix
 pub fn parse_datetime_lowercase_z_test() {
   let prop = ical.Property("DTSTART", [], "20230101t100000z")
   let parser = make_test_parser()
@@ -408,6 +384,7 @@ pub fn parse_datetime_lowercase_z_test() {
   assert secs == 1_672_567_200
 }
 
+// parse a datetime that falls in a DST gap (spring forward) — America/New_York
 pub fn parse_datetime_dst_gap_test() {
   let param = ical.Parameter("TZID", "America/New_York")
   let prop = ical.Property("DTSTART", [param], "20240310T033000")
@@ -417,6 +394,7 @@ pub fn parse_datetime_dst_gap_test() {
   assert secs == 1_710_055_800
 }
 
+// parse a datetime that falls in a DST overlap (fall back) — Europe/Stockholm
 pub fn parse_datetime_dst_overlap_test() {
   let param = ical.Parameter("TZID", "Europe/Stockholm")
   let prop = ical.Property("DTSTART", [param], "20241027T023000")
@@ -426,6 +404,7 @@ pub fn parse_datetime_dst_overlap_test() {
   assert secs == 1_729_989_000
 }
 
+// parse a calendar with floating datetime using Europe/Stockholm timezone override
 pub fn parse_calendar_with_timezone_test() {
   let input =
     "
@@ -450,6 +429,7 @@ pub fn parse_calendar_with_timezone_test() {
   assert secs == 1_672_563_600
 }
 
+// parse a calendar with floating datetime using America/New_York timezone override
 pub fn parse_with_timezone_test() {
   let input =
     "
@@ -474,6 +454,7 @@ pub fn parse_with_timezone_test() {
   assert secs == 1_672_585_200
 }
 
+// verify all-day detection with VALUE=DATE (uppercase and lowercase parameter)
 pub fn event_is_all_day_test() {
   let parse = fn(raw) {
     let assert Ok(calendar) = ical_parse(raw)
@@ -514,6 +495,7 @@ pub fn event_is_all_day_test() {
   assert parse(input_lower).is_all_day == True
 }
 
+// verify a timed event with TZID is not marked as all-day
 pub fn event_not_all_day_with_tzid_test() {
   let input =
     "
@@ -534,7 +516,8 @@ pub fn event_not_all_day_with_tzid_test() {
   assert event.is_all_day == False
 }
 
-pub fn parse_event_description_location_url_test() {
+// verify description, location, url, created, last-modified, and dtstamp fields
+pub fn parse_event_details_test() {
   let input =
     "
       BEGIN:VCALENDAR
@@ -549,24 +532,6 @@ pub fn parse_event_description_location_url_test() {
       DTEND:20230101T110000Z
       UID:details@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  assert event.summary == "Team Offsite"
-  assert event.description == "Annual planning session"
-  assert event.location == "Stockholm"
-  assert event.url == "https://example.com/offsite"
-}
-
-pub fn parse_event_created_last_modified_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       SUMMARY:Meeting
       CREATED:20230101T080000Z
@@ -575,28 +540,6 @@ pub fn parse_event_created_last_modified_test() {
       DTEND:20230101T110000Z
       UID:timestamps@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Some(created) = event.created
-  let #(created_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(created)
-  assert created_secs == 1_672_560_000
-
-  let assert Some(last_modified) = event.last_modified
-  let #(modified_secs, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(last_modified)
-  assert modified_secs == 1_672_650_000
-}
-
-pub fn parse_event_dtstamp_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       SUMMARY:Meeting
       DTSTAMP:20230101T120000Z
@@ -608,13 +551,30 @@ pub fn parse_event_dtstamp_test() {
       "
     |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
+  let events = calendar.events
 
-  let assert Some(dtstamp) = event.dtstamp
+  let assert Ok(details) = list.find(events, fn(e) { e.uid == "details@test" })
+  assert details.summary == "Team Offsite"
+  assert details.description == "Annual planning session"
+  assert details.location == "Stockholm"
+  assert details.url == "https://example.com/offsite"
+
+  let assert Ok(ts) = list.find(events, fn(e) { e.uid == "timestamps@test" })
+  let assert Some(created) = ts.created
+  let #(created_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(created)
+  assert created_secs == 1_672_560_000
+  let assert Some(last_modified) = ts.last_modified
+  let #(modified_secs, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(last_modified)
+  assert modified_secs == 1_672_650_000
+
+  let assert Ok(dstamp) = list.find(events, fn(e) { e.uid == "dtstamp@test" })
+  let assert Some(dtstamp) = dstamp.dtstamp
   let #(dtstamp_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(dtstamp)
   assert dtstamp_secs == 1_672_574_400
 }
 
+// parse a calendar as a tree, verify root component kind and properties
 pub fn parse_tree_root_test() {
   let input =
     "
@@ -638,6 +598,7 @@ pub fn parse_tree_root_test() {
   assert prodid_prop.value == "-//Test//EN"
 }
 
+// parse a tree with a VEVENT child, verify child kind and properties
 pub fn parse_tree_events_test() {
   let input =
     "
@@ -664,6 +625,7 @@ pub fn parse_tree_events_test() {
   assert summary_prop.value == "Meeting"
 }
 
+// parse a tree with a nested VALARM inside VEVENT, verify nested component structure
 pub fn parse_tree_nested_alarm_test() {
   let input =
     "
@@ -694,6 +656,7 @@ pub fn parse_tree_nested_alarm_test() {
   assert action.value == "DISPLAY"
 }
 
+// parse_tree rejects input with multiple root components
 pub fn parse_tree_multiple_roots_test() {
   let input =
     "
@@ -710,97 +673,117 @@ pub fn parse_tree_multiple_roots_test() {
   let assert Error(_) = ical.parse_tree(ical.new_parser(tzdb()), input)
 }
 
+// parse_tree rejects empty input
 pub fn parse_tree_empty_test() {
   let input = ""
   let assert Error(_) = ical.parse_tree(ical.new_parser(tzdb()), input)
 }
 
-// ------------------------ duration parsing
+// -------- duration parsing
+// PT1H = 1 hour
 pub fn parse_duration_hour_test() {
   let assert Ok(dur) = ical.parse_duration("PT1H")
   assert duration.to_seconds(dur) == 3600.0
 }
 
+// PT30M = 30 minutes
 pub fn parse_duration_minute_test() {
   let assert Ok(dur) = ical.parse_duration("PT30M")
   assert duration.to_seconds(dur) == 1800.0
 }
 
+// P1D = 1 day
 pub fn parse_duration_day_test() {
   let assert Ok(dur) = ical.parse_duration("P1D")
   assert duration.to_seconds(dur) == 86_400.0
 }
 
+// P1W = 1 week
 pub fn parse_duration_week_test() {
   let assert Ok(dur) = ical.parse_duration("P1W")
   assert duration.to_seconds(dur) == 604_800.0
 }
 
+// P1DT2H3M4S = 1 day + 2 hours + 3 minutes + 4 seconds
 pub fn parse_duration_combined_test() {
   let assert Ok(dur) = ical.parse_duration("P1DT2H3M4S")
   assert duration.to_seconds(dur) == 93_784.0
 }
 
+// PT1H30M = 1 hour 30 minutes
 pub fn parse_duration_hour_minute_test() {
   let assert Ok(dur) = ical.parse_duration("PT1H30M")
   assert duration.to_seconds(dur) == 5400.0
 }
 
+// PT1H30M10S = 1 hour 30 minutes 10 seconds
 pub fn parse_duration_hour_minute_second_test() {
   let assert Ok(dur) = ical.parse_duration("PT1H30M10S")
   assert duration.to_seconds(dur) == 5410.0
 }
 
+// -PT30M = negative 30 minutes
 pub fn parse_duration_negative_test() {
   let assert Ok(dur) = ical.parse_duration("-PT30M")
   assert duration.to_seconds(dur) == -1800.0
 }
 
+// +PT1H = positive 1 hour with explicit sign
 pub fn parse_duration_positive_sign_test() {
   let assert Ok(dur) = ical.parse_duration("+PT1H")
   assert duration.to_seconds(dur) == 3600.0
 }
 
+// PT1.5S — fractional seconds should error
 pub fn parse_duration_fractional_seconds_error_test() {
   let assert Error(_) = ical.parse_duration("PT1.5S")
 }
 
+// pt1h — lowercase duration designator is accepted
 pub fn parse_duration_lowercase_test() {
   let assert Ok(dur) = ical.parse_duration("pt1h")
   assert duration.to_seconds(dur) == 3600.0
 }
 
+// T1H — missing P prefix should error
 pub fn parse_duration_missing_p_test() {
   let assert Error(_) = ical.parse_duration("T1H")
 }
 
+// P1X — invalid unit should error
 pub fn parse_duration_invalid_unit_test() {
   let assert Error(_) = ical.parse_duration("P1X")
 }
 
+// P1DT — empty time section after T should error
 pub fn parse_duration_empty_time_after_t_test() {
   let assert Error(_) = ical.parse_duration("P1DT")
 }
 
+// PTM — missing number before M should error
 pub fn parse_duration_missing_number_test() {
   let assert Error(_) = ical.parse_duration("PTM")
 }
 
+// P2H — hours without T designator are accepted as duration suffix
 pub fn parse_duration_no_t_required_test() {
   let assert Ok(dur) = ical.parse_duration("P2H")
   assert duration.to_seconds(dur) == 7200.0
 }
 
+// P2H2H — duplicate unit accumulates (2 hours + 2 hours = 4 hours)
 pub fn parse_duration_duplicate_units_test() {
   let assert Ok(dur) = ical.parse_duration("P2H2H")
   assert duration.to_seconds(dur) == 14_400.0
 }
 
+// P30S2M — out-of-order units (seconds before minutes) are accepted
 pub fn parse_duration_out_of_order_test() {
   let assert Ok(dur) = ical.parse_duration("P30S2M")
   assert duration.to_seconds(dur) == 150.0
 }
 
+// get_property finds a property by name from raw, returns Error for missing names
 pub fn get_property_test() {
   let event =
     ical.Event(
@@ -836,6 +819,7 @@ pub fn get_property_test() {
   let assert Error(Nil) = ical.get_property(event, "LOCATION")
 }
 
+// get_parameter finds a parameter by name from a property, returns Error for missing
 pub fn get_parameter_test() {
   let prop =
     ical.Property(
@@ -854,6 +838,7 @@ pub fn get_parameter_test() {
   let assert Error(Nil) = ical.get_parameter(empty_prop, "TZID")
 }
 
+// ATTENDEE with CN and RSVP parameters — get_property + get_parameter combined
 pub fn get_property_and_parameter_combined_test() {
   let input =
     "
@@ -878,6 +863,7 @@ pub fn get_property_and_parameter_combined_test() {
   let assert Error(Nil) = ical.get_parameter(attendee, "EMAIL")
 }
 
+// lowercase begin/end component names (begin:vcalendar, end:vevent) are accepted
 pub fn parse_lowercase_component_names_test() {
   let input =
     "
@@ -902,6 +888,7 @@ pub fn parse_lowercase_component_names_test() {
   assert event.uid == "lowercase@test"
 }
 
+// lowercase property names and parameter names are accepted
 pub fn parse_lowercase_property_names_test() {
   let input =
     "
@@ -910,45 +897,36 @@ pub fn parse_lowercase_property_names_test() {
       PRODID:-//Test//EN
       BEGIN:VEVENT
       summary:Lowercase Summary
-      uid:lowercase@test
+      uid:lowercase-prop@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-
-  let assert [event] = calendar.events
-  assert event.summary == "Lowercase Summary"
-  assert event.uid == "lowercase@test"
-}
-
-pub fn parse_lowercase_parameter_name_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       DTSTART;tzid=Europe/Stockholm:20230101T100000
       SUMMARY:Timed
-      UID:timed@test
+      UID:lowercase-param@test
       END:VEVENT
       END:VCALENDAR
       "
     |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
+  let events = calendar.events
 
-  let assert [event] = calendar.events
+  let assert Ok(prop_event) =
+    list.find(events, fn(e) { e.uid == "lowercase-prop@test" })
+  assert prop_event.summary == "Lowercase Summary"
+  assert prop_event.uid == "lowercase-prop@test"
+
+  let assert Ok(param_event) =
+    list.find(events, fn(e) { e.uid == "lowercase-param@test" })
   let assert Ok(dtstart_prop) =
-    list.find(event.raw, fn(p: ical.Property) { p.name == "DTSTART" })
-  let assert [param] = dtstart_prop.params
-  assert param.name == "TZID"
-  assert param.value == "Europe/Stockholm"
-
+    list.find(param_event.raw, fn(p: ical.Property) { p.name == "DTSTART" })
+  let assert [p] = dtstart_prop.params
+  assert p.name == "TZID"
+  assert p.value == "Europe/Stockholm"
   let assert #(1_672_563_600, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
+    timestamp.to_unix_seconds_and_nanoseconds(param_event.dtstart)
 }
 
+// get_property is case-insensitive when searching by name
 pub fn get_property_lowercase_search_test() {
   let event =
     ical.Event(
@@ -973,6 +951,7 @@ pub fn get_property_lowercase_search_test() {
   assert prop.value == "20230101T100000Z"
 }
 
+// get_parameter is case-insensitive when searching by name
 pub fn get_parameter_lowercase_search_test() {
   let prop =
     ical.Property(
@@ -984,7 +963,8 @@ pub fn get_parameter_lowercase_search_test() {
   let assert Ok("Europe/Stockholm") = ical.get_parameter(prop, "tzid")
 }
 
-pub fn parse_quoted_param_with_semicolon_test() {
+// quoted parameter values preserving semicolons, colons, equals, escaped quotes, and backslashes
+pub fn parse_quoted_params_test() {
   let input =
     "
       BEGIN:VCALENDAR
@@ -995,116 +975,26 @@ pub fn parse_quoted_param_with_semicolon_test() {
       SUMMARY:Meeting
       UID:quoted-semi@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
-  assert attendee.value == "mailto:john@example.com"
-
-  let assert Ok("Doe; John") = ical.get_parameter(attendee, "CN")
-}
-
-pub fn parse_quoted_param_with_colon_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       ATTENDEE;CN=\"Doe: John\":mailto:john@example.com
       SUMMARY:Meeting
       UID:quoted-colon@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
-  assert attendee.value == "mailto:john@example.com"
-
-  let assert Ok("Doe: John") = ical.get_parameter(attendee, "CN")
-}
-
-pub fn parse_quoted_param_with_equals_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       ATTENDEE;CN=\"Doe=John\":mailto:john@example.com
       SUMMARY:Meeting
       UID:quoted-eq@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
-  assert attendee.value == "mailto:john@example.com"
-
-  let assert Ok("Doe=John") = ical.get_parameter(attendee, "CN")
-}
-
-pub fn parse_quoted_param_with_escaped_quote_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       ATTENDEE;CN=\"Doe\\\"John\":mailto:john@example.com
       SUMMARY:Meeting
       UID:quoted-escquote@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
-  assert attendee.value == "mailto:john@example.com"
-
-  let assert Ok("Doe\"John") = ical.get_parameter(attendee, "CN")
-}
-
-pub fn parse_quoted_param_with_escaped_backslash_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       ATTENDEE;CN=\"Doe\\\\John\":mailto:john@example.com
       SUMMARY:Meeting
       UID:quoted-escback@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
-  assert attendee.value == "mailto:john@example.com"
-
-  let assert Ok("Doe\\John") = ical.get_parameter(attendee, "CN")
-}
-
-pub fn parse_multiple_quoted_params_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       ATTENDEE;CN=\"Doe; John\";ROLE=\"REQ-PARTICIPANT\":mailto:john@example.com
       SUMMARY:Meeting
@@ -1114,20 +1004,37 @@ pub fn parse_multiple_quoted_params_test() {
       "
     |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
+  let events = calendar.events
 
-  let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
-  let assert Ok("Doe; John") = ical.get_parameter(attendee, "CN")
-  let assert Ok("REQ-PARTICIPANT") = ical.get_parameter(attendee, "ROLE")
+  let check = fn(uid, expected_cn, expected_role) {
+    let assert Ok(event) = list.find(events, fn(e) { e.uid == uid })
+    let assert Ok(att) = ical.get_property(event, "ATTENDEE")
+    assert att.value == "mailto:john@example.com"
+    let assert Ok(cn) = ical.get_parameter(att, "CN")
+    assert cn == expected_cn
+    case expected_role {
+      Some(role) -> {
+        let assert Ok(r) = ical.get_parameter(att, "ROLE")
+        assert r == role
+      }
+      None -> Nil
+    }
+  }
+
+  check("quoted-semi@test", "Doe; John", None)
+  check("quoted-colon@test", "Doe: John", None)
+  check("quoted-eq@test", "Doe=John", None)
+  check("quoted-escquote@test", "Doe\"John", None)
+  check("quoted-escback@test", "Doe\\John", None)
+  check("quoted-multi@test", "Doe; John", Some("REQ-PARTICIPANT"))
 }
 
 fn make_test_parser() -> ical.Parser {
   ical.new_parser(tzdb())
 }
 
-// ------------------------ DTEND/DURATION fallback
-
-pub fn event_dtend_from_duration_test() {
+// DURATION fallback when DTEND is missing; DTEND takes priority over DURATION; unix_epoch when both are missing
+pub fn event_dtend_tests() {
   let input =
     "
       BEGIN:VCALENDAR
@@ -1139,28 +1046,6 @@ pub fn event_dtend_from_duration_test() {
       SUMMARY:Duration event
       UID:duration@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let #(start_secs, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
-  let #(end_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.dtend)
-
-  // dtstart = 20230101T100000Z = 1_672_567_200
-  assert start_secs == 1_672_567_200
-  // dtend = dtstart + 1 hour = 1_672_570_800
-  assert end_secs == 1_672_570_800
-}
-
-pub fn event_dtend_prefers_dtend_over_duration_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       DTSTART:20230101T100000Z
       DTEND:20230101T120000Z
@@ -1168,25 +1053,6 @@ pub fn event_dtend_prefers_dtend_over_duration_test() {
       SUMMARY:Both dtend and duration
       UID:both@test
       END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  let #(end_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.dtend)
-
-  // DTEND wins: 20230101T120000Z = 1_672_574_400
-  // If DURATION won, it would be 1_672_569_000 (dtstart + 30m)
-  assert end_secs == 1_672_574_400
-}
-
-pub fn event_dtend_missing_both_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
       BEGIN:VEVENT
       DTSTART:20230101T100000Z
       SUMMARY:No dtend no duration
@@ -1196,7 +1062,16 @@ pub fn event_dtend_missing_both_test() {
       "
     |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
+  let events = calendar.events
 
-  assert event.dtend == timestamp.unix_epoch
+  let assert Ok(dur) = list.find(events, fn(e) { e.uid == "duration@test" })
+  let #(dur_end, _) = timestamp.to_unix_seconds_and_nanoseconds(dur.dtend)
+  assert dur_end == 1_672_570_800
+
+  let assert Ok(both) = list.find(events, fn(e) { e.uid == "both@test" })
+  let #(both_end, _) = timestamp.to_unix_seconds_and_nanoseconds(both.dtend)
+  assert both_end == 1_672_574_400
+
+  let assert Ok(no_end) = list.find(events, fn(e) { e.uid == "no-end@test" })
+  assert no_end.dtend == timestamp.unix_epoch
 }
