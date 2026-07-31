@@ -36,16 +36,23 @@ pub fn parse_calendar_with_one_event_test() {
       PRODID:-//Test//EN
       BEGIN:VEVENT
       SUMMARY:Meeting
+      DTSTART:20230101T100000Z
+      DTEND:20230101T110000Z
       UID:123@test
       END:VEVENT
       END:VCALENDAR
       "
     |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
-
   let assert [event] = calendar.events
   assert event.summary == "Meeting"
   assert event.uid == "123@test"
+  assert event.description == ""
+  assert event.location == ""
+  assert event.url == ""
+  assert event.created == None
+  assert event.last_modified == None
+  assert event.dtstamp == None
 }
 
 pub fn parse_event_with_location_test() {
@@ -121,6 +128,7 @@ pub fn parse_event_with_dtstart_dtend_test() {
   let #(start_secs, _) =
     timestamp.to_unix_seconds_and_nanoseconds(event.dtstart)
   assert start_secs == 1_672_567_200
+  assert event.is_all_day == False
 }
 
 pub fn parse_multiple_events_test() {
@@ -467,6 +475,12 @@ pub fn parse_with_timezone_test() {
 }
 
 pub fn event_is_all_day_test() {
+  let parse = fn(raw) {
+    let assert Ok(calendar) = ical_parse(raw)
+    let assert [event] = calendar.events
+    event
+  }
+
   let input =
     "
       BEGIN:VCALENDAR
@@ -481,29 +495,23 @@ pub fn event_is_all_day_test() {
       END:VCALENDAR
       "
     |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-  assert event.is_all_day == True
-}
+  assert parse(input).is_all_day == True
 
-pub fn event_not_all_day_test() {
-  let input =
+  let input_lower =
     "
       BEGIN:VCALENDAR
       VERSION:2.0
       PRODID:-//Test//EN
       BEGIN:VEVENT
-      DTSTART:20230101T100000Z
-      DTEND:20230101T110000Z
-      SUMMARY:Timed
-      UID:timed@test
+      DTSTART;value=date:20230101
+      DTEND;value=date:20230102
+      SUMMARY:All day
+      UID:allday@test
       END:VEVENT
       END:VCALENDAR
       "
     |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-  assert event.is_all_day == False
+  assert parse(input_lower).is_all_day == True
 }
 
 pub fn event_not_all_day_with_tzid_test() {
@@ -605,32 +613,6 @@ pub fn parse_event_dtstamp_test() {
   let assert Some(dtstamp) = event.dtstamp
   let #(dtstamp_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(dtstamp)
   assert dtstamp_secs == 1_672_574_400
-}
-
-pub fn parse_event_missing_optional_fields_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
-      BEGIN:VEVENT
-      SUMMARY:Minimal
-      DTSTART:20230101T100000Z
-      DTEND:20230101T110000Z
-      UID:minimal@test
-      END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-
-  assert event.description == ""
-  assert event.location == ""
-  assert event.url == ""
-  assert event.created == None
-  assert event.last_modified == None
-  assert event.dtstamp == None
 }
 
 pub fn parse_tree_root_test() {
@@ -1000,26 +982,6 @@ pub fn get_parameter_lowercase_search_test() {
     )
 
   let assert Ok("Europe/Stockholm") = ical.get_parameter(prop, "tzid")
-}
-
-pub fn parse_lowercase_value_date_test() {
-  let input =
-    "
-      BEGIN:VCALENDAR
-      VERSION:2.0
-      PRODID:-//Test//EN
-      BEGIN:VEVENT
-      DTSTART;value=date:20230101
-      DTEND;value=date:20230102
-      SUMMARY:All day
-      UID:allday@test
-      END:VEVENT
-      END:VCALENDAR
-      "
-    |> test_utils.trim_margin
-  let assert Ok(calendar) = ical_parse(input)
-  let assert [event] = calendar.events
-  assert event.is_all_day == True
 }
 
 pub fn parse_quoted_param_with_semicolon_test() {
