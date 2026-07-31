@@ -1,6 +1,9 @@
+import gleam/bit_array
 import gleam/bool
+import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/result
 import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
@@ -251,4 +254,48 @@ pub fn tzdb() {
     let assert Ok(tz_db) = database.load_from_os()
     tz_db
   })
+}
+
+pub fn trim_margin(string: String) -> String {
+  let lines =
+    string
+    |> string.split("\n")
+
+  let trim_count =
+    list.fold(lines, 0, fn(min_count, line) {
+      case line != "" {
+        True -> int.max(0, count_whitespace(bit_array.from_string(line), 0))
+        False -> min_count
+      }
+    })
+
+  list.map(lines, fn(line) {
+    case line {
+      "" -> Ok(line)
+      line -> trim_spaces(bit_array.from_string(line), trim_count)
+    }
+  })
+  |> result.all
+  |> result.map(string.join(_, "\n"))
+  |> result.map(string.trim)
+  |> result.unwrap(string)
+}
+
+fn count_whitespace(line: BitArray, count: Int) {
+  case line {
+    <<" ", rest:bits>> -> count_whitespace(rest, count + 1)
+    _ -> count
+  }
+}
+
+fn trim_spaces(line: BitArray, count: Int) {
+  case count == 0 {
+    True -> bit_array.to_string(line)
+    False -> {
+      case line {
+        <<" ", rest:bits>> -> trim_spaces(rest, count - 1)
+        _ -> Error(Nil)
+      }
+    }
+  }
 }

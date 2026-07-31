@@ -13,10 +13,13 @@ fn ical_parse(input: String) -> Result(ical.Calendar, ical.ParseError) {
 
 pub fn parse_simple_calendar_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
 
   assert calendar.version == "2.0"
@@ -27,14 +30,17 @@ END:VCALENDAR"
 
 pub fn parse_calendar_with_one_event_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Meeting
-UID:123@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Meeting
+      UID:123@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
 
   let assert [event] = calendar.events
@@ -44,15 +50,18 @@ END:VCALENDAR"
 
 pub fn parse_event_with_location_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Conference
-LOCATION:Stockholm
-UID:456@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Conference
+      LOCATION:Stockholm
+      UID:456@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
   assert event.summary == "Conference"
@@ -64,16 +73,19 @@ END:VCALENDAR"
 
 pub fn parse_event_with_parameters_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART;TZID=Europe/Stockholm:20230101T100000
-DTEND;TZID=Europe/Stockholm:20230101T110000
-SUMMARY:Test
-UID:789@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART;TZID=Europe/Stockholm:20230101T100000
+      DTEND;TZID=Europe/Stockholm:20230101T110000
+      SUMMARY:Test
+      UID:789@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -90,16 +102,19 @@ END:VCALENDAR"
 
 pub fn parse_event_with_dtstart_dtend_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART:20230101T100000Z
-DTEND:20230101T110000Z
-SUMMARY:Timed
-UID:timed@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART:20230101T100000Z
+      DTEND:20230101T110000Z
+      SUMMARY:Timed
+      UID:timed@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -110,18 +125,21 @@ END:VCALENDAR"
 
 pub fn parse_multiple_events_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Event 1
-UID:1@test
-END:VEVENT
-BEGIN:VEVENT
-SUMMARY:Event 2
-UID:2@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Event 1
+      UID:1@test
+      END:VEVENT
+      BEGIN:VEVENT
+      SUMMARY:Event 2
+      UID:2@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [e1, e2] = calendar.events
 
@@ -131,16 +149,19 @@ END:VCALENDAR"
 
 pub fn parse_folded_lines_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DESCRIPTION:This is a long des
- cription that spans
-  multiple lines
-UID:fold@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DESCRIPTION:This is a long des
+       cription that spans
+        multiple lines
+      UID:fold@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -151,14 +172,17 @@ END:VCALENDAR"
 
 pub fn parse_escaped_text_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DESCRIPTION:Line 1\\nLine 2 with\\, comma
-UID:esc@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DESCRIPTION:Line 1\\nLine 2 with\\, comma
+      UID:esc@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -170,14 +194,17 @@ END:VCALENDAR"
 
 pub fn parse_escaped_capital_newline_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DESCRIPTION:Line 1\\NLine 2
-UID:esc-capital@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DESCRIPTION:Line 1\\NLine 2
+      UID:esc-capital@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -188,14 +215,17 @@ END:VCALENDAR"
 
 pub fn parse_escaped_colon_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DESCRIPTION:Time\\: 10
-UID:esc-colon@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DESCRIPTION:Time\\: 10
+      UID:esc-colon@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -206,14 +236,17 @@ END:VCALENDAR"
 
 pub fn parse_escaped_backslash_before_newline_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DESCRIPTION:literal backslash and n\\\\n not a newline
-UID:esc-backslash-n@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DESCRIPTION:literal backslash and n\\\\n not a newline
+      UID:esc-backslash-n@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -225,14 +258,17 @@ END:VCALENDAR"
 
 pub fn parse_empty_summary_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:
-UID:empty@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:
+      UID:empty@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
   assert event.summary == ""
@@ -240,20 +276,23 @@ END:VCALENDAR"
 
 pub fn parse_real_ical_file_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//caldav.icloud.com//CALDAVJ 2626B756//EN
-X-WR-CALNAME:Privat
-BEGIN:VEVENT
-CREATED:20171104T221935Z
-DTEND;TZID=Europe/Stockholm:20171128T203000
-DTSTAMP:20171125T133010Z
-DTSTART;TZID=Europe/Stockholm:20171128T193000
-LOCATION:Malmö Live
-SUMMARY:Anders och Måns
-UID:001E66D2-7DF8-40A8-B0BC-EBC4E3F9C2FD
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//caldav.icloud.com//CALDAVJ 2626B756//EN
+      X-WR-CALNAME:Privat
+      BEGIN:VEVENT
+      CREATED:20171104T221935Z
+      DTEND;TZID=Europe/Stockholm:20171128T203000
+      DTSTAMP:20171125T133010Z
+      DTSTART;TZID=Europe/Stockholm:20171128T193000
+      LOCATION:Malmö Live
+      SUMMARY:Anders och Måns
+      UID:001E66D2-7DF8-40A8-B0BC-EBC4E3F9C2FD
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   assert calendar.version == "2.0"
   assert calendar.prodid == "-//caldav.icloud.com//CALDAVJ 2626B756//EN"
@@ -264,15 +303,18 @@ END:VCALENDAR"
 
 pub fn parse_property_with_params_in_raw_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-LOCATION;FMTTYPE=text/html:Conference Room
-SUMMARY:Test
-UID:params@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      LOCATION;FMTTYPE=text/html:Conference Room
+      SUMMARY:Test
+      UID:params@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -378,15 +420,18 @@ pub fn parse_datetime_dst_overlap_test() {
 
 pub fn parse_calendar_with_timezone_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART:20230101T100000
-SUMMARY:Floating
-UID:float@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART:20230101T100000
+      SUMMARY:Floating
+      UID:float@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) =
     ical.parse(ical.new_parser(tzdb()), input, Some("Europe/Stockholm"))
 
@@ -399,15 +444,18 @@ END:VCALENDAR"
 
 pub fn parse_with_timezone_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART:20230101T100000
-SUMMARY:Floating
-UID:float@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART:20230101T100000
+      SUMMARY:Floating
+      UID:float@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) =
     ical.parse(ical.new_parser(tzdb()), input, Some("America/New_York"))
 
@@ -420,16 +468,19 @@ END:VCALENDAR"
 
 pub fn event_is_all_day_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART;VALUE=DATE:20230101
-DTEND;VALUE=DATE:20230102
-SUMMARY:All day
-UID:allday@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART;VALUE=DATE:20230101
+      DTEND;VALUE=DATE:20230102
+      SUMMARY:All day
+      UID:allday@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
   assert event.is_all_day == True
@@ -437,16 +488,19 @@ END:VCALENDAR"
 
 pub fn event_not_all_day_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART:20230101T100000Z
-DTEND:20230101T110000Z
-SUMMARY:Timed
-UID:timed@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART:20230101T100000Z
+      DTEND:20230101T110000Z
+      SUMMARY:Timed
+      UID:timed@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
   assert event.is_all_day == False
@@ -454,16 +508,19 @@ END:VCALENDAR"
 
 pub fn event_not_all_day_with_tzid_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART;TZID=Europe/Stockholm:20230101T100000
-DTEND;TZID=Europe/Stockholm:20230101T110000
-SUMMARY:Timed
-UID:timed@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART;TZID=Europe/Stockholm:20230101T100000
+      DTEND;TZID=Europe/Stockholm:20230101T110000
+      SUMMARY:Timed
+      UID:timed@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
   assert event.is_all_day == False
@@ -471,19 +528,22 @@ END:VCALENDAR"
 
 pub fn parse_event_description_location_url_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Team Offsite
-DESCRIPTION:Annual planning session
-LOCATION:Stockholm
-URL:https://example.com/offsite
-DTSTART:20230101T100000Z
-DTEND:20230101T110000Z
-UID:details@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Team Offsite
+      DESCRIPTION:Annual planning session
+      LOCATION:Stockholm
+      URL:https://example.com/offsite
+      DTSTART:20230101T100000Z
+      DTEND:20230101T110000Z
+      UID:details@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -495,18 +555,21 @@ END:VCALENDAR"
 
 pub fn parse_event_created_last_modified_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Meeting
-CREATED:20230101T080000Z
-LAST-MODIFIED:20230102T090000Z
-DTSTART:20230101T100000Z
-DTEND:20230101T110000Z
-UID:timestamps@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Meeting
+      CREATED:20230101T080000Z
+      LAST-MODIFIED:20230102T090000Z
+      DTSTART:20230101T100000Z
+      DTEND:20230101T110000Z
+      UID:timestamps@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -522,17 +585,20 @@ END:VCALENDAR"
 
 pub fn parse_event_dtstamp_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Meeting
-DTSTAMP:20230101T120000Z
-DTSTART:20230101T100000Z
-DTEND:20230101T110000Z
-UID:dtstamp@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Meeting
+      DTSTAMP:20230101T120000Z
+      DTSTART:20230101T100000Z
+      DTEND:20230101T110000Z
+      UID:dtstamp@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -543,16 +609,19 @@ END:VCALENDAR"
 
 pub fn parse_event_missing_optional_fields_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Minimal
-DTSTART:20230101T100000Z
-DTEND:20230101T110000Z
-UID:minimal@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Minimal
+      DTSTART:20230101T100000Z
+      DTEND:20230101T110000Z
+      UID:minimal@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -566,10 +635,13 @@ END:VCALENDAR"
 
 pub fn parse_tree_root_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(root) = ical.parse_tree(ical.new_parser(tzdb()), input)
 
   assert root.kind == "VCALENDAR"
@@ -586,14 +658,17 @@ END:VCALENDAR"
 
 pub fn parse_tree_events_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Meeting
-UID:meeting@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Meeting
+      UID:meeting@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(root) = ical.parse_tree(ical.new_parser(tzdb()), input)
 
   assert root.kind == "VCALENDAR"
@@ -609,18 +684,21 @@ END:VCALENDAR"
 
 pub fn parse_tree_nested_alarm_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-SUMMARY:Meeting
-UID:alarm@test
-BEGIN:VALARM
-ACTION:DISPLAY
-DESCRIPTION:Reminder
-END:VALARM
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Meeting
+      UID:alarm@test
+      BEGIN:VALARM
+      ACTION:DISPLAY
+      DESCRIPTION:Reminder
+      END:VALARM
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(root) = ical.parse_tree(ical.new_parser(tzdb()), input)
 
   let assert [event] = root.children
@@ -636,14 +714,17 @@ END:VCALENDAR"
 
 pub fn parse_tree_multiple_roots_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-END:VCALENDAR
-BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      END:VCALENDAR
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Error(_) = ical.parse_tree(ical.new_parser(tzdb()), input)
 }
 
@@ -793,15 +874,17 @@ pub fn get_parameter_test() {
 
 pub fn get_property_and_parameter_combined_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-ATTENDEE;CN=John;RSVP=TRUE:mailto:john@example.com
-SUMMARY:Meeting
-UID:123@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      ATTENDEE;CN=John;RSVP=TRUE:mailto:john@example.com
+      SUMMARY:Meeting
+      UID:123@test
+      END:VEVENT
+      END:VCALENDAR"
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -815,14 +898,18 @@ END:VCALENDAR"
 
 pub fn parse_lowercase_component_names_test() {
   let input =
-    "begin:vcalendar
-VERSION:2.0
-PRODID:-//Test//EN
-begin:vevent
-SUMMARY:Lowercase
-UID:lowercase@test
-end:vevent
-end:vcalendar"
+    "
+      begin:vcalendar
+      VERSION:2.0
+      PRODID:-//Test//EN
+      begin:vevent
+      SUMMARY:Lowercase
+      UID:lowercase@test
+      end:vevent
+      end:vcalendar
+      "
+    |> test_utils.trim_margin
+
   let assert Ok(calendar) = ical_parse(input)
 
   assert calendar.version == "2.0"
@@ -835,14 +922,17 @@ end:vcalendar"
 
 pub fn parse_lowercase_property_names_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-summary:Lowercase Summary
-uid:lowercase@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      summary:Lowercase Summary
+      uid:lowercase@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
 
   let assert [event] = calendar.events
@@ -852,15 +942,18 @@ END:VCALENDAR"
 
 pub fn parse_lowercase_parameter_name_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART;tzid=Europe/Stockholm:20230101T100000
-SUMMARY:Timed
-UID:timed@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART;tzid=Europe/Stockholm:20230101T100000
+      SUMMARY:Timed
+      UID:timed@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
 
   let assert [event] = calendar.events
@@ -911,16 +1004,19 @@ pub fn get_parameter_lowercase_search_test() {
 
 pub fn parse_lowercase_value_date_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART;value=date:20230101
-DTEND;value=date:20230102
-SUMMARY:All day
-UID:allday@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART;value=date:20230101
+      DTEND;value=date:20230102
+      SUMMARY:All day
+      UID:allday@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
   assert event.is_all_day == True
@@ -928,15 +1024,18 @@ END:VCALENDAR"
 
 pub fn parse_quoted_param_with_semicolon_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-ATTENDEE;CN=\"Doe; John\":mailto:john@example.com
-SUMMARY:Meeting
-UID:quoted-semi@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      ATTENDEE;CN=\"Doe; John\":mailto:john@example.com
+      SUMMARY:Meeting
+      UID:quoted-semi@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -948,15 +1047,18 @@ END:VCALENDAR"
 
 pub fn parse_quoted_param_with_colon_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-ATTENDEE;CN=\"Doe: John\":mailto:john@example.com
-SUMMARY:Meeting
-UID:quoted-colon@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      ATTENDEE;CN=\"Doe: John\":mailto:john@example.com
+      SUMMARY:Meeting
+      UID:quoted-colon@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -968,15 +1070,18 @@ END:VCALENDAR"
 
 pub fn parse_quoted_param_with_equals_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-ATTENDEE;CN=\"Doe=John\":mailto:john@example.com
-SUMMARY:Meeting
-UID:quoted-eq@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      ATTENDEE;CN=\"Doe=John\":mailto:john@example.com
+      SUMMARY:Meeting
+      UID:quoted-eq@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -988,15 +1093,18 @@ END:VCALENDAR"
 
 pub fn parse_quoted_param_with_escaped_quote_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-ATTENDEE;CN=\"Doe\\\"John\":mailto:john@example.com
-SUMMARY:Meeting
-UID:quoted-escquote@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      ATTENDEE;CN=\"Doe\\\"John\":mailto:john@example.com
+      SUMMARY:Meeting
+      UID:quoted-escquote@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -1008,15 +1116,18 @@ END:VCALENDAR"
 
 pub fn parse_quoted_param_with_escaped_backslash_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-ATTENDEE;CN=\"Doe\\\\John\":mailto:john@example.com
-SUMMARY:Meeting
-UID:quoted-escback@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      ATTENDEE;CN=\"Doe\\\\John\":mailto:john@example.com
+      SUMMARY:Meeting
+      UID:quoted-escback@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -1028,15 +1139,18 @@ END:VCALENDAR"
 
 pub fn parse_multiple_quoted_params_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-ATTENDEE;CN=\"Doe; John\";ROLE=\"REQ-PARTICIPANT\":mailto:john@example.com
-SUMMARY:Meeting
-UID:quoted-multi@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      ATTENDEE;CN=\"Doe; John\";ROLE=\"REQ-PARTICIPANT\":mailto:john@example.com
+      SUMMARY:Meeting
+      UID:quoted-multi@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -1053,16 +1167,19 @@ fn make_test_parser() -> ical.Parser {
 
 pub fn event_dtend_from_duration_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART:20230101T100000Z
-DURATION:PT1H
-SUMMARY:Duration event
-UID:duration@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART:20230101T100000Z
+      DURATION:PT1H
+      SUMMARY:Duration event
+      UID:duration@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -1078,17 +1195,20 @@ END:VCALENDAR"
 
 pub fn event_dtend_prefers_dtend_over_duration_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART:20230101T100000Z
-DTEND:20230101T120000Z
-DURATION:PT30M
-SUMMARY:Both dtend and duration
-UID:both@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART:20230101T100000Z
+      DTEND:20230101T120000Z
+      DURATION:PT30M
+      SUMMARY:Both dtend and duration
+      UID:both@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
@@ -1101,15 +1221,18 @@ END:VCALENDAR"
 
 pub fn event_dtend_missing_both_test() {
   let input =
-    "BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Test//EN
-BEGIN:VEVENT
-DTSTART:20230101T100000Z
-SUMMARY:No dtend no duration
-UID:no-end@test
-END:VEVENT
-END:VCALENDAR"
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART:20230101T100000Z
+      SUMMARY:No dtend no duration
+      UID:no-end@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
