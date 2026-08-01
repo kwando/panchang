@@ -10,10 +10,8 @@ import test_utils.{tzdb}
 //   https://github.com/collective/icalendar/blob/main/src/icalendar/tests/
 
 pub fn icalendar_example_correctness_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/icalendar/example.ics")
-  let assert Ok(calendar) =
-    ical.parse(ical.new_parser(tzdb()), input, None)
+  let assert Ok(input) = simplifile.read("test/fixtures/icalendar/example.ics")
+  let assert Ok(calendar) = ical.parse(ical.new_parser(tzdb()), input, None)
 
   assert calendar.version == "2.0"
   assert calendar.prodid == "collective/icalendar"
@@ -23,8 +21,7 @@ pub fn icalendar_example_correctness_test() {
 pub fn icalendar_timezoned_correctness_test() {
   let assert Ok(input) =
     simplifile.read("test/fixtures/icalendar/timezoned.ics")
-  let assert Ok(calendar) =
-    ical.parse(ical.new_parser(tzdb()), input, None)
+  let assert Ok(calendar) = ical.parse(ical.new_parser(tzdb()), input, None)
 
   assert calendar.prodid == "-//Plone.org//NONSGML plone.app.event//EN"
 
@@ -36,10 +33,8 @@ pub fn icalendar_timezoned_correctness_test() {
 }
 
 pub fn icalendar_rfc_6868_correctness_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/icalendar/rfc_6868.ics")
-  let assert Ok(calendar) =
-    ical.parse(ical.new_parser(tzdb()), input, None)
+  let assert Ok(input) = simplifile.read("test/fixtures/icalendar/rfc_6868.ics")
+  let assert Ok(calendar) = ical.parse(ical.new_parser(tzdb()), input, None)
 
   // Python: https://github.com/collective/icalendar/blob/main/src/icalendar/tests/test_rfc_6868.py
   // Asserts: CN=George Herman ^'Babe^' Ruth decodes to CN="George Herman \"Babe\" Ruth"
@@ -53,8 +48,7 @@ pub fn icalendar_rfc_6868_correctness_test() {
 pub fn icalendar_calendar_with_unicode_correctness_test() {
   let assert Ok(input) =
     simplifile.read("test/fixtures/icalendar/calendar_with_unicode.ics")
-  let assert Ok(calendar) =
-    ical.parse(ical.new_parser(tzdb()), input, None)
+  let assert Ok(calendar) = ical.parse(ical.new_parser(tzdb()), input, None)
 
   // Python: https://github.com/collective/icalendar/blob/main/src/icalendar/tests/test_examples.py
   // Verifies calendar-level unicode metadata survives parse/serialize

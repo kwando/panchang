@@ -212,7 +212,9 @@ pub fn parse_escaped_text_test() {
   let get_desc = fn(uid) {
     let assert Ok(event) = list.find(events, fn(e) { e.uid == uid })
     let assert Ok(prop) =
-      list.find(event.properties, fn(p: ical.Property) { p.name == "DESCRIPTION" })
+      list.find(event.properties, fn(p: ical.Property) {
+        p.name == "DESCRIPTION"
+      })
     prop.value
   }
 
@@ -937,7 +939,9 @@ pub fn parse_lowercase_property_names_test() {
   let assert Ok(param_event) =
     list.find(events, fn(e) { e.uid == "lowercase-param@test" })
   let assert Ok(dtstart_prop) =
-    list.find(param_event.properties, fn(p: ical.Property) { p.name == "DTSTART" })
+    list.find(param_event.properties, fn(p: ical.Property) {
+      p.name == "DTSTART"
+    })
   let assert [p] = dtstart_prop.params
   assert p.name == "TZID"
   assert p.value == "Europe/Stockholm"

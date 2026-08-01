@@ -110,7 +110,12 @@ fn render_event(event: ical.Event, depth: Int) -> String {
       render_field(indent, "description", event.description, quote),
       render_field(indent, "location", event.location, quote),
       render_field(indent, "url", event.url, quote),
-      render_field(indent, "start_time", Some(event.start_time), render_timestamp),
+      render_field(
+        indent,
+        "start_time",
+        Some(event.start_time),
+        render_timestamp,
+      ),
       render_field(indent, "end_time", Some(event.end_time), render_timestamp),
       render_field(indent, "created", event.created, render_timestamp),
       render_field(

@@ -53,6 +53,10 @@ fn error_to_string(error: Error) {
     InvalidArguments(msg) -> msg
     CannotReadFile(error) -> "failed to read file: " <> string.inspect(error)
     CannotParseCalendar(ical.ParseError(msg)) -> "cant parse calendar: " <> msg
+    CannotParseCalendar(ical.DateParseError(msg, raw)) ->
+      "cant parse calendar: " <> msg <> " (" <> raw <> ")"
+    CannotParseCalendar(ical.DurationParseError(msg, raw)) ->
+      "cant parse calendar: " <> msg <> " (" <> raw <> ")"
     CannotReadTimezoneDatabase -> "failed to initalize timezone database"
   }
 }

@@ -150,9 +150,12 @@ pub type Parameter {
 
 /// An error that can occur during parsing.
 pub type ParseError {
-  /// The input could not be parsed. The string contains a description of
-  /// what went wrong.
-  ParseError(String)
+  /// A structural parsing error (missing component, unexpected line, etc.)
+  ParseError(message: String)
+  /// A date or datetime value could not be parsed.
+  DateParseError(message: String, raw: String)
+  /// A duration value could not be parsed.
+  DurationParseError(message: String, raw: String)
 }
 
 /// A raw iCal component, such as `VCALENDAR`, `VEVENT`, or `VTIMEZONE`.
@@ -622,7 +625,8 @@ fn get_tzid(params: List(Parameter)) -> Result(String, ParseError) {
 
 // Date-only values (VALUE=DATE) have no time component; treat them as
 // midnight UTC so they still produce a valid timestamp.
-fn parse_date_only(value: String) -> Result(Timestamp, ParseError) {
+fn parse_date_only(raw: String) -> Result(Timestamp, ParseError) {
+  let value = raw
   case bit_array.from_string(value) {
     <<y1, y2, y3, y4, m1, m2, d1, d2>>
       if y1 >= 48
@@ -657,13 +661,13 @@ fn parse_date_only(value: String) -> Result(Timestamp, ParseError) {
                 calendar.TimeOfDay(0, 0, 0, 0),
                 calendar.utc_offset,
               ))
-            False -> Error(ParseError("Invalid date"))
+            False -> Error(DateParseError("Invalid date", raw))
           }
         }
-        Error(_) -> Error(ParseError("Invalid month"))
+        Error(_) -> Error(DateParseError("Invalid month", raw))
       }
     }
-    _ -> Error(ParseError("Invalid date format"))
+    _ -> Error(DateParseError("Invalid date format", raw))
   }
 }
 
@@ -671,8 +675,9 @@ fn parse_date_only(value: String) -> Result(Timestamp, ParseError) {
 // bytes directly instead of using a general date parser.
 fn parse_datetime_value(
   _parser: Parser,
-  value: String,
+  raw: String,
 ) -> Result(#(calendar.Date, calendar.TimeOfDay), ParseError) {
+  let value = raw
   case bit_array.from_string(value) {
     <<y1, y2, y3, y4, m1, m2, d1, d2, t, h1, h2, min1, min2, s1, s2>>
       if y1 >= 48
@@ -706,7 +711,7 @@ fn parse_datetime_value(
       && s2 <= 57
     -> {
       case t == 84 || t == 116 {
-        False -> Error(ParseError("Invalid T separator"))
+        False -> Error(DateParseError("Invalid T separator", raw))
         True -> {
           let y1v = y1 - 48
           let y2v = y2 - 48
@@ -737,18 +742,18 @@ fn parse_datetime_value(
                   let time = calendar.TimeOfDay(hours, minutes, seconds, 0)
                   case calendar.is_valid_time_of_day(time) {
                     True -> Ok(#(date, time))
-                    False -> Error(ParseError("Invalid time"))
+                    False -> Error(DateParseError("Invalid time", raw))
                   }
                 }
-                False -> Error(ParseError("Invalid date"))
+                False -> Error(DateParseError("Invalid date", raw))
               }
             }
-            Error(_) -> Error(ParseError("Invalid month"))
+            Error(_) -> Error(DateParseError("Invalid month", raw))
           }
         }
       }
     }
-    _ -> Error(ParseError("Invalid datetime format"))
+    _ -> Error(DateParseError("Invalid datetime format", raw))
   }
 }
 
@@ -851,17 +856,18 @@ pub fn parse_datetime(
 ///
 pub fn parse_duration(value: String) -> Result(Duration, ParseError) {
   let value = string.uppercase(string.trim(value))
+  let raw = value
 
   use #(value, sign) <- result.try(case bit_array.from_string(value) {
     <<"+P", rest:bits>> | <<"P", rest:bits>> -> Ok(#(rest, 1))
     <<"-P", rest:bits>> -> Ok(#(rest, -1))
-    _ -> Error(ParseError("Invalid duration"))
+    _ -> Error(DurationParseError("Invalid duration", value))
   })
 
   case duration_components(value, 0, False, []) {
-    Ok([]) -> Error(ParseError("Duration value is empty"))
+    Ok([]) -> Error(DurationParseError("Duration value is empty", raw))
     Ok(components) -> duration_from_components(components, sign)
-    Error(_) -> Error(ParseError("Invalid duration format"))
+    Error(_) -> Error(DurationParseError("Invalid duration format", raw))
   }
 }
 
