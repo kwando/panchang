@@ -95,10 +95,3 @@ published package; they are only used during development.
 ```sh
 gleam test  # Run the tests
 ```
-
-### Todo
-
-- [x] publish docs on github pages
-- [x] update parsing of dates to use pattern matching
-- [x] benchmark if matching on ascii bytes is faster than on strings
-- [x] move tzdb loading to the test_utils module
