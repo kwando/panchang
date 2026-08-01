@@ -16,6 +16,9 @@ import tzif/database
 /// This is intended for snapshot tests and debugging, not for generating
 /// valid iCal output. Property order and component nesting are preserved.
 ///
+/// Render a parsed iCal component tree as a readable string for snapshot
+/// testing. Includes the component kind, all properties with their parameters,
+/// and nested children.
 pub fn render_tree(component: ical.Component) -> String {
   render_component(component, 0)
   |> string.trim_end
@@ -88,6 +91,9 @@ fn indent_for(depth: Int) -> String {
 /// timestamps are rendered as `-`. This is intended for snapshot tests and
 /// debugging, not for generating valid iCal output.
 ///
+/// Render a parsed `Calendar` as a readable string for snapshot testing.
+/// Includes the calendar version, prodid, timezone, and all events with their
+/// decoded fields.
 pub fn render_calendar(calendar: ical.Calendar) -> String {
   let header = "Calendar\n"
   let version = "  version: " <> quote(calendar.version) <> "\n"
@@ -305,6 +311,9 @@ fn trim_spaces(line: BitArray, count: Int) {
   }
 }
 
+/// Create a `Timestamp` from a calendar date and time in UTC. Useful for
+/// readable test assertions: `utc(2023, 1, 1, 10, 0, 0)` instead of an opaque
+/// Unix seconds value.
 pub fn utc(
   year: Int,
   month: Int,
