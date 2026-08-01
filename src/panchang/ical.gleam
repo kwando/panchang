@@ -613,10 +613,11 @@ fn extract_timestamp(
   props: List(Property),
   name: String,
   parser: Parser,
+  fallback_tz: String,
 ) -> Option(Timestamp) {
   props
   |> list.find(fn(p) { name_eq(p.name, name) })
-  |> result.map(fn(p) { parse_timestamp(p, parser, "UTC") })
+  |> result.map(fn(p) { parse_timestamp(p, parser, fallback_tz) })
   |> option.from_result
 }
 
@@ -962,9 +963,10 @@ fn build_event(
       }
   }
 
-  let created = extract_timestamp(props, "CREATED", parser)
-  let last_modified = extract_timestamp(props, "LAST-MODIFIED", parser)
-  let generated_at = extract_timestamp(props, "DTSTAMP", parser)
+  let created = extract_timestamp(props, "CREATED", parser, fallback_tz)
+  let last_modified =
+    extract_timestamp(props, "LAST-MODIFIED", parser, fallback_tz)
+  let generated_at = extract_timestamp(props, "DTSTAMP", parser, fallback_tz)
 
   let organizer = extract_organizer(props)
   let attendees = extract_attendees(props)

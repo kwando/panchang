@@ -526,6 +526,47 @@ pub fn parse_with_timezone_test() {
   assert secs == 1_672_585_200
 }
 
+// verify floating CREATED, LAST-MODIFIED, and DTSTAMP are resolved using the
+// calendar's timezone, not hardcoded UTC
+pub fn parse_floating_timestamps_with_timezone_test() {
+  let input =
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Meeting
+      CREATED:20230101T100000
+      LAST-MODIFIED:20230101T110000
+      DTSTAMP:20230101T120000
+      DTSTART:20230101T130000Z
+      DTEND:20230101T140000Z
+      UID:timestamps-tz@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
+  let assert Ok(calendar) =
+    ical.parse(ical.new_parser(tzdb()), input, Some("Europe/Stockholm"))
+
+  let assert [event] = calendar.events
+
+  let assert Some(created) = event.created
+  let assert #(1_672_563_600, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(created)
+    as "should use Europe/Stockholm to resolve floating CREATED"
+
+  let assert Some(last_modified) = event.last_modified
+  let assert #(1_672_567_200, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(last_modified)
+    as "should use Europe/Stockholm to resolve floating LAST-MODIFIED"
+
+  let assert Some(generated_at) = event.generated_at
+  let assert #(1_672_570_800, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(generated_at)
+    as "should use Europe/Stockholm to resolve floating DTSTAMP"
+}
+
 // verify all-day detection with VALUE=DATE (uppercase and lowercase parameter)
 pub fn event_is_all_day_test() {
   let parse = fn(raw) {
