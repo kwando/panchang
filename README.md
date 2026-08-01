@@ -30,9 +30,9 @@ pub fn main() {
   let assert [event] = calendar.events
   event.summary
   // -> "Meeting"
-  event.is_all_day
+  event.all_day
   // -> False
-  timestamp.to_unix_seconds(event.dtstart)
+  timestamp.to_unix_seconds(event.start_time)
   // -> 1672567200.0
 }
 ```
@@ -46,9 +46,10 @@ pub fn main() {
 - Treats property, parameter, and component names as case-insensitive.
 - Resolves datetimes using the IANA timezone database via `tzif`.
 - Extracts common event fields: `uid`, `summary`, `description`, `location`,
-  `url`, `dtstart`, `dtend`, `created`, `last_modified`, `dtstamp`, `is_all_day`.
-- Preserves all original properties in `event.raw` for access to anything not
-  explicitly parsed.
+  `url`, `start_time`, `end_time`, `created`, `last_modified`, `generated_at`,
+  `all_day`.
+- Preserves all original properties in `event.properties` for access to anything
+  not explicitly parsed.
 - Exposes a generic `parse_tree` function for full access to the component tree.
 
 ## Out of scope
