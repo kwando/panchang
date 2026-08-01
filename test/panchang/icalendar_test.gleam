@@ -112,19 +112,12 @@ pub fn icalendar_issue_1081_event_with_rrule_calendar_snapshot_test() {
   snapshot_calendar("issue_1081_event_with_rrule")
 }
 
-// BOM-prefixed calendars are not yet supported — parse_tree rejects them
 pub fn icalendar_bom_calendar_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/icalendar/bom_calendar.ics")
-  let parser = ical.new_parser(tzdb())
-  let assert Error(_) = ical.parse_tree(parser, input)
+  snapshot_tree("bom_calendar")
 }
 
 pub fn icalendar_bom_calendar_calendar_snapshot_test() {
-  let assert Ok(input) =
-    simplifile.read("test/fixtures/icalendar/bom_calendar.ics")
-  let assert Error(_) =
-    ical.parse(ical.new_parser(tzdb()), input, option.None)
+  snapshot_calendar("bom_calendar")
 }
 
 pub fn icalendar_created_calendar_with_unicode_fields_snapshot_test() {

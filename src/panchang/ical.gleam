@@ -211,6 +211,8 @@ pub fn parse_tree(
   parser: Parser,
   input: String,
 ) -> Result(Component, ParseError) {
+  // Strip UTF-8 BOM (U+FEFF) that some Windows applications prepend to .ics files
+  let input = string.remove_prefix(input, "\u{FEFF}")
   let lines = unfold_lines(input, parser)
   let non_empty = list.filter(lines, fn(line) { line != "" })
 
