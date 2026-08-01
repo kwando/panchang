@@ -1,4 +1,5 @@
 import gleam/bit_array
+import gleam/bool
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -699,47 +700,17 @@ pub fn parse_date(raw: String) -> Result(calendar.Date, ParseError) {
 pub fn parse_datetime_string(
   raw: String,
 ) -> Result(#(calendar.Date, calendar.TimeOfDay, DateTimeKind), ParseError) {
-  let is_utc = string.ends_with(raw, "Z") || string.ends_with(raw, "z")
-  let kind = case is_utc {
-    True -> Utc
-    False -> Floating
-  }
-  let clean = case is_utc {
-    True -> string.slice(raw, 0, string.length(raw) - 1)
-    False -> raw
-  }
+  use #(date, rest) <- result.try(parse_date_bytes(
+    bit_array.from_string(raw),
+    raw,
+  ))
 
-  use #(date, rest) <- result.try(
-    parse_date_bytes(bit_array.from_string(clean), raw),
-  )
-
-  case rest {
-    <<t, h1, h2, min1, min2, s1, s2>>
-      if t == 84 || t == 116
-      && h1 >= 48
-      && h1 <= 57
-      && h2 >= 48
-      && h2 <= 57
-      && min1 >= 48
-      && min1 <= 57
-      && min2 >= 48
-      && min2 <= 57
-      && s1 >= 48
-      && s1 <= 57
-      && s2 >= 48
-      && s2 <= 57
-    -> {
-      let hours = {h1 - 48} * 10 + {h2 - 48}
-      let minutes = {min1 - 48} * 10 + {min2 - 48}
-      let seconds = {s1 - 48} * 10 + {s2 - 48}
-      let time = calendar.TimeOfDay(hours, minutes, seconds, 0)
-
-      case calendar.is_valid_time_of_day(time) {
-        True -> Ok(#(date, time, kind))
-        False -> Error(DateParseError("Invalid time", raw))
-      }
-    }
-    _ -> Error(DateParseError("Invalid datetime format", raw))
+  case parse_time_bytes(rest) {
+    Ok(#(time, <<"Z">>)) | Ok(#(time, <<"z">>)) -> Ok(#(date, time, Utc))
+    Ok(#(time, <<>>)) -> Ok(#(date, time, Floating))
+    // we got some extra bytes/bits at the end which we dont know hot to handle
+    Ok(#(_, _)) -> Error(DateParseError("Invalid datetime format", raw))
+    Error(_) -> Error(DateParseError("Invalid time", raw))
   }
 }
 
@@ -763,61 +734,76 @@ pub fn parse_datetime(
   fallback_tz: String,
 ) -> Timestamp {
   let value = prop.value
+  use <- bool.guard(when: string.is_empty(value), return: timestamp.unix_epoch)
 
-  case value == "" {
-    True -> timestamp.unix_epoch
-    False -> {
-      let is_date = has_param_value_date(prop.params)
+  case parse_date_bytes(bit_array.from_string(value), value) {
+    Ok(#(date, <<>>)) -> {
+      use <- bool.guard(
+        when: !has_param_value_date(prop.params),
+        return: timestamp.unix_epoch,
+      )
 
-      case is_date {
-        True ->
-          case parse_date(value) {
-            Ok(date) ->
-              timestamp.from_calendar(
-                date,
-                calendar.TimeOfDay(0, 0, 0, 0),
-                calendar.utc_offset,
-              )
-            Error(_) -> timestamp.unix_epoch
-          }
-        False -> {
-          let is_utc =
-            string.ends_with(value, "Z") || string.ends_with(value, "z")
+      timestamp.from_calendar(
+        date,
+        calendar.TimeOfDay(0, 0, 0, 0),
+        calendar.utc_offset,
+      )
+    }
+    Error(_) -> timestamp.unix_epoch
 
-          case parse_datetime_string(value) {
-            Ok(#(date, time, _)) -> {
-              let tzid = case is_utc {
-                True -> Error(ParseError("UTC"))
-                False -> get_tzid(prop.params)
-              }
+    Ok(#(date, time_bits)) -> {
+      case parse_time_bytes(time_bits) {
+        Ok(#(time, <<"Z">>)) | Ok(#(time, <<"z">>)) ->
+          timestamp.from_calendar(date, time, calendar.utc_offset)
+        Ok(#(time, <<>>)) -> {
+          let timezone =
+            prop.params
+            |> get_tzid()
+            |> result.unwrap(fallback_tz)
 
-              let tz_name = case tzid {
-                Ok(tz) -> tz
-                Error(_) ->
-                  case fallback_tz == "" {
-                    True -> "UTC"
-                    False -> fallback_tz
-                  }
-              }
-
-              case tz_name == "UTC" {
-                True -> timestamp.from_calendar(date, time, calendar.utc_offset)
-                False ->
-                  case
-                    tzcalendar.from_calendar(date, time, tz_name, parser.db)
-                  {
-                    Ok([ts]) -> ts
-                    Ok([ts, ..]) -> ts
-                    Ok([]) | Error(_) ->
-                      timestamp.from_calendar(date, time, calendar.utc_offset)
-                  }
-              }
-            }
-            Error(_) -> timestamp.unix_epoch
+          case tzcalendar.from_calendar(date, time, timezone, parser.db) {
+            Ok([ts]) -> ts
+            Ok([ts, ..]) -> ts
+            Ok([]) | Error(_) ->
+              timestamp.from_calendar(date, time, calendar.utc_offset)
           }
         }
+        Error(_) | Ok(#(_, _)) -> timestamp.unix_epoch
       }
     }
+  }
+}
+
+fn parse_time_bytes(
+  rest: BitArray,
+) -> Result(#(calendar.TimeOfDay, BitArray), Nil) {
+  case rest {
+    <<t, h1, h2, min1, min2, s1, s2, rest:bits>>
+      if { t == 84 || t == 116 }
+      && h1 >= 48
+      && h1 <= 57
+      && h2 >= 48
+      && h2 <= 57
+      && min1 >= 48
+      && min1 <= 57
+      && min2 >= 48
+      && min2 <= 57
+      && s1 >= 48
+      && s1 <= 57
+      && s2 >= 48
+      && s2 <= 57
+    -> {
+      let hours = { h1 - 48 } * 10 + { h2 - 48 }
+      let minutes = { min1 - 48 } * 10 + { min2 - 48 }
+      let seconds = { s1 - 48 } * 10 + { s2 - 48 }
+      let time = calendar.TimeOfDay(hours, minutes, seconds, 0)
+
+      case calendar.is_valid_time_of_day(time) {
+        True -> Ok(#(time, rest))
+        False -> Error(Nil)
+      }
+    }
+    _ -> Error(Nil)
   }
 }
 
