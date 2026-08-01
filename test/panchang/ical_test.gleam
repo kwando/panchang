@@ -374,7 +374,8 @@ fn check_ts(
 ) {
   let prop = ical.Property("DTSTART", params, value)
   let parser = default_parser()
-  assert ical.parse_timestamp(prop, parser, fallback_tz) == expected
+  let assert Ok(parsed) = ical.parse_timestamp(prop, parser, fallback_tz)
+  assert parsed == expected
 }
 
 pub fn parse_datetime_utc_test() {
@@ -425,6 +426,41 @@ pub fn parse_datetime_invalid_test() {
 
 pub fn parse_datetime_empty_test() {
   check_ts([], "", "UTC", timestamp.unix_epoch)
+}
+
+pub fn parse_rejects_unknown_timezone_test() {
+  let input =
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART;TZID=Unknown/Timezone:20230101T100000
+      UID:unknown-timezone@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
+
+  let assert Error(ical.UnknownTimezone("Unknown/Timezone")) = ical_parse(input)
+}
+
+pub fn parse_rejects_nonexistent_local_time_test() {
+  let input =
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      DTSTART;TZID=America/New_York:20240310T023000
+      UID:nonexistent-local-time@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
+
+  let assert Error(ical.NonexistentLocalTime("America/New_York")) =
+    ical_parse(input)
 }
 
 pub fn parse_datetime_lowercase_z_test() {

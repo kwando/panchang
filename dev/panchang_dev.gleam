@@ -55,6 +55,10 @@ fn error_to_string(error: Error) {
     CannotParseCalendar(ical.ParseError(msg)) -> "cant parse calendar: " <> msg
     CannotParseCalendar(ical.DateParseError(msg, raw)) ->
       "cant parse calendar: " <> msg <> " (" <> raw <> ")"
+    CannotParseCalendar(ical.UnknownTimezone(timezone)) ->
+      "cant parse calendar: unknown timezone (" <> timezone <> ")"
+    CannotParseCalendar(ical.NonexistentLocalTime(timezone)) ->
+      "cant parse calendar: nonexistent local time (" <> timezone <> ")"
     CannotReadTimezoneDatabase -> "failed to initalize timezone database"
   }
 }

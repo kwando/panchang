@@ -164,6 +164,10 @@ pub type ParseError {
   ParseError(message: String)
   /// A date or datetime value could not be parsed.
   DateParseError(message: String, raw: String)
+  /// A datetime referenced a timezone not available in the parser's database.
+  UnknownTimezone(timezone: String)
+  /// A local datetime does not occur due to a timezone offset transition.
+  NonexistentLocalTime(timezone: String)
 }
 
 /// A raw iCal component, such as `VCALENDAR`, `VEVENT`, or `VTIMEZONE`.
@@ -612,11 +616,11 @@ fn extract_timestamp(
   name: String,
   parser: Parser,
   fallback_tz: String,
-) -> Option(Timestamp) {
-  props
-  |> list.find(fn(p) { name_eq(p.name, name) })
-  |> result.map(fn(p) { parse_timestamp(p, parser, fallback_tz) })
-  |> option.from_result
+) -> Result(Option(Timestamp), ParseError) {
+  case list.find(props, fn(p) { name_eq(p.name, name) }) {
+    Ok(prop) -> parse_timestamp(prop, parser, fallback_tz) |> result.map(Some)
+    Error(_) -> Ok(None)
+  }
 }
 
 fn has_param_value_date(params: List(Parameter)) -> Bool {
@@ -720,7 +724,8 @@ pub fn parse_datetime(
 /// - Date-only: `VALUE=DATE:20230101` (treated as midnight UTC)
 /// - Floating: `20230101T100000` (resolved using `fallback_tz`, or UTC)
 ///
-/// Returns `timestamp.unix_epoch` for empty or unparseable values.
+/// Returns a timezone-specific error when a local datetime cannot be resolved.
+/// Empty or otherwise unparseable values return `timestamp.unix_epoch`.
 ///
 /// Explicit `TZID` parameters take precedence over the fallback timezone, which
 /// is used for floating datetimes. The calendar's `X-WR-TIMEZONE` is handled by
@@ -730,29 +735,32 @@ pub fn parse_timestamp(
   prop: Property,
   parser: Parser,
   fallback_tz: String,
-) -> Timestamp {
+) -> Result(Timestamp, ParseError) {
   let value = prop.value
-  use <- bool.guard(when: string.is_empty(value), return: timestamp.unix_epoch)
+  use <- bool.guard(
+    when: string.is_empty(value),
+    return: Ok(timestamp.unix_epoch),
+  )
 
   case parse_date_bytes(bit_array.from_string(value), value) {
     Ok(#(date, <<>>)) -> {
       use <- bool.guard(
         when: !has_param_value_date(prop.params),
-        return: timestamp.unix_epoch,
+        return: Ok(timestamp.unix_epoch),
       )
 
-      timestamp.from_calendar(
+      Ok(timestamp.from_calendar(
         date,
         calendar.TimeOfDay(0, 0, 0, 0),
         calendar.utc_offset,
-      )
+      ))
     }
-    Error(_) -> timestamp.unix_epoch
+    Error(_) -> Ok(timestamp.unix_epoch)
 
     Ok(#(date, time_bits)) -> {
       case parse_time_bytes(time_bits) {
         Ok(#(time, <<"Z">>)) | Ok(#(time, <<"z">>)) ->
-          timestamp.from_calendar(date, time, calendar.utc_offset)
+          Ok(timestamp.from_calendar(date, time, calendar.utc_offset))
         Ok(#(time, <<>>)) -> {
           let timezone =
             prop.params
@@ -760,13 +768,12 @@ pub fn parse_timestamp(
             |> result.unwrap(fallback_tz)
 
           case tzcalendar.from_calendar(date, time, timezone, parser.db) {
-            Ok([ts]) -> ts
-            Ok([ts, ..]) -> ts
-            Ok([]) | Error(_) ->
-              timestamp.from_calendar(date, time, calendar.utc_offset)
+            Ok([ts]) | Ok([ts, ..]) -> Ok(ts)
+            Ok([]) -> Error(NonexistentLocalTime(timezone))
+            Error(_) -> Error(UnknownTimezone(timezone))
           }
         }
-        Error(_) | Ok(#(_, _)) -> timestamp.unix_epoch
+        Error(_) | Ok(#(_, _)) -> Ok(timestamp.unix_epoch)
       }
     }
   }
@@ -925,7 +932,7 @@ fn build_event(
   props: List(Property),
   parser: Parser,
   fallback_tz: String,
-) -> Event {
+) -> Result(Event, ParseError) {
   let uid = extract_prop(props, "UID")
   let summary = extract_prop(props, "SUMMARY")
   let description = extract_prop(props, "DESCRIPTION")
@@ -941,31 +948,46 @@ fn build_event(
     |> result.map(fn(p) { has_param_value_date(p.params) })
     |> result.unwrap(False)
 
-  let start_time =
-    dtstart_prop
-    |> result.map(fn(p) { parse_timestamp(p, parser, fallback_tz) })
-    |> result.unwrap(timestamp.unix_epoch)
-  let end_time = case dtend_prop {
+  use start_time <- result.try(case dtstart_prop {
+    Ok(prop) -> parse_timestamp(prop, parser, fallback_tz)
+    Error(_) -> Ok(timestamp.unix_epoch)
+  })
+  use end_time <- result.try(case dtend_prop {
     Ok(prop) -> parse_timestamp(prop, parser, fallback_tz)
     Error(_) ->
       case duration_prop {
         Ok(prop) ->
-          parse_duration(prop.value)
-          |> result.map(fn(d) { timestamp.add(start_time, d) })
-          |> result.unwrap(timestamp.unix_epoch)
-        Error(_) -> timestamp.unix_epoch
+          case parse_duration(prop.value) {
+            Ok(duration) -> Ok(timestamp.add(start_time, duration))
+            Error(_) -> Ok(timestamp.unix_epoch)
+          }
+        Error(_) -> Ok(timestamp.unix_epoch)
       }
-  }
+  })
 
-  let created = extract_timestamp(props, "CREATED", parser, fallback_tz)
-  let last_modified =
-    extract_timestamp(props, "LAST-MODIFIED", parser, fallback_tz)
-  let generated_at = extract_timestamp(props, "DTSTAMP", parser, fallback_tz)
+  use created <- result.try(extract_timestamp(
+    props,
+    "CREATED",
+    parser,
+    fallback_tz,
+  ))
+  use last_modified <- result.try(extract_timestamp(
+    props,
+    "LAST-MODIFIED",
+    parser,
+    fallback_tz,
+  ))
+  use generated_at <- result.try(extract_timestamp(
+    props,
+    "DTSTAMP",
+    parser,
+    fallback_tz,
+  ))
 
   let organizer = extract_organizer(props)
   let attendees = extract_attendees(props)
 
-  Event(
+  Ok(Event(
     uid,
     summary,
     description,
@@ -980,7 +1002,7 @@ fn build_event(
     attendees,
     all_day,
     props,
-  )
+  ))
 }
 
 fn extract_organizer(props: List(Property)) -> Option(Attendee) {
@@ -1071,14 +1093,11 @@ fn build_calendar(
         Some(tz) -> tz
       }
 
-      let events =
+      use events <- result.try(
         cal_children
-        |> list.filter_map(fn(c) {
-          case c.kind {
-            "VEVENT" -> Ok(build_event(c.properties, parser, detected_tz))
-            _ -> Error(Nil)
-          }
-        })
+        |> list.filter(fn(c) { c.kind == "VEVENT" })
+        |> list.try_map(fn(c) { build_event(c.properties, parser, detected_tz) }),
+      )
 
       Ok(Calendar(version, prodid, detected_tz, events))
     }
