@@ -207,7 +207,6 @@ pub type Component {
 ///
 pub opaque type Parser {
   Parser(
-    lines: splitter.Splitter,
     ws: splitter.Splitter,
     t_sep: splitter.Splitter,
     db: database.TzDatabase,
@@ -226,7 +225,6 @@ pub opaque type Parser {
 ///
 pub fn new_parser(tz_db: database.TzDatabase) {
   Parser(
-    lines: splitter.new(["\r\n", "\n"]),
     ws: splitter.new([" ", "\t"]),
     t_sep: splitter.new(["T", "t"]),
     db: tz_db,
@@ -243,12 +241,12 @@ pub fn new_parser(tz_db: database.TzDatabase) {
 /// Errors if the input is empty or contains more than one top-level component.
 ///
 pub fn parse_tree(
-  parser: Parser,
+  _parser: Parser,
   input: String,
 ) -> Result(Component, ParseError) {
   // Strip UTF-8 BOM (U+FEFF) that some Windows applications prepend to .ics files
   let input = string.remove_prefix(input, "\u{FEFF}")
-  let lines = unfold_lines(input, parser)
+  let lines = unfold_lines(input)
   let non_empty = list.filter(lines, fn(line) { line != "" })
 
   case parse_all_components(non_empty, []) {
@@ -297,44 +295,26 @@ pub fn parse(
 
 // iCal content lines can be folded by starting a continuation line with a
 // space or tab. Unfold first so every logical property line is a single string.
-fn unfold_lines(input: String, parser: Parser) -> List(String) {
-  do_unfold_lines(input, parser, [])
-  |> list.reverse
+fn unfold_lines(input: String) -> List(String) {
+  input
+  |> bit_array.from_string
+  |> do_unfold_lines(<<>>)
+  |> bit_array.to_string
+  |> result.unwrap("")
+  |> string.split("\n")
 }
 
-fn do_unfold_lines(
-  input: String,
-  parser: Parser,
-  acc: List(String),
-) -> List(String) {
-  case splitter.split(parser.lines, input) {
-    #(line, "", "") ->
-      case acc {
-        [] -> [line]
-        [prev, ..rest] ->
-          case string.starts_with(line, " ") || string.starts_with(line, "\t") {
-            True -> {
-              let #(_, remaining) = splitter.split_after(parser.ws, line)
-              [prev <> remaining, ..rest]
-            }
-            False -> [line, prev, ..rest]
-          }
-      }
-    #(line, _, remaining) ->
-      case acc {
-        [] -> do_unfold_lines(remaining, parser, [line])
-        [prev, ..rest] ->
-          case string.starts_with(line, " ") || string.starts_with(line, "\t") {
-            True -> {
-              let #(_, remaining_line) = splitter.split_after(parser.ws, line)
-              do_unfold_lines(remaining, parser, [
-                prev <> remaining_line,
-                ..rest
-              ])
-            }
-            False -> do_unfold_lines(remaining, parser, [line, prev, ..rest])
-          }
-      }
+fn do_unfold_lines(input: BitArray, acc: BitArray) -> BitArray {
+  case input {
+    <<>> -> acc
+    <<"\r\n", " ", rest:bytes>> | <<"\r\n", "\t", rest:bytes>> ->
+      do_unfold_lines(rest, acc)
+    <<"\n", " ", rest:bytes>> | <<"\n", "\t", rest:bytes>> ->
+      do_unfold_lines(rest, acc)
+    <<"\r\n", rest:bytes>> | <<"\n", rest:bytes>> ->
+      do_unfold_lines(rest, <<acc:bits, "\n":utf8>>)
+    <<byte:8, rest:bytes>> -> do_unfold_lines(rest, <<acc:bits, byte:8>>)
+    _ -> <<acc:bits, input:bits>>
   }
 }
 
@@ -489,11 +469,25 @@ fn unescape_param_value(value: String) -> String {
 /// - `^n` (U+005E U+006E) → U+000A (line feed)
 ///
 fn rfc_6868_unescape(value: String) -> String {
-  // Order matters: ^' first so ^^' doesn't become "
   value
-  |> string.replace("^'", "\"")
-  |> string.replace("^^", "^")
-  |> string.replace("^n", "\n")
+  |> bit_array.from_string
+  |> do_rfc_6868_unescape(<<>>)
+  |> bit_array.to_string
+  |> result.unwrap(value)
+}
+
+fn do_rfc_6868_unescape(input: BitArray, acc: BitArray) -> BitArray {
+  case input {
+    <<>> -> acc
+    <<"^", "'", rest:bytes>> ->
+      do_rfc_6868_unescape(rest, <<acc:bits, "\"":utf8>>)
+    <<"^", "^", rest:bytes>> ->
+      do_rfc_6868_unescape(rest, <<acc:bits, "^":utf8>>)
+    <<"^", "n", rest:bytes>> ->
+      do_rfc_6868_unescape(rest, <<acc:bits, "\n":utf8>>)
+    <<byte:8, rest:bytes>> -> do_rfc_6868_unescape(rest, <<acc:bits, byte:8>>)
+    _ -> <<acc:bits, input:bits>>
+  }
 }
 
 fn do_unescape_param_text(

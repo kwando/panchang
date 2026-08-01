@@ -1137,6 +1137,16 @@ pub fn parse_quoted_params_test() {
       SUMMARY:Meeting
       UID:quoted-multi@test
       END:VEVENT
+      BEGIN:VEVENT
+      ATTENDEE;CN=^^n:mailto:john@example.com
+      SUMMARY:Meeting
+      UID:rfc-6868-caret-n@test
+      END:VEVENT
+      BEGIN:VEVENT
+      ATTENDEE;CN=^^':mailto:john@example.com
+      SUMMARY:Meeting
+      UID:rfc-6868-caret-quote@test
+      END:VEVENT
       END:VCALENDAR
       "
     |> test_utils.trim_margin
@@ -1164,6 +1174,8 @@ pub fn parse_quoted_params_test() {
   check("quoted-escquote@test", "Doe\"John", None)
   check("quoted-escback@test", "Doe\\John", None)
   check("quoted-multi@test", "Doe; John", Some("REQ-PARTICIPANT"))
+  check("rfc-6868-caret-n@test", "^n", None)
+  check("rfc-6868-caret-quote@test", "^'", None)
 }
 
 // DURATION fallback when DTEND is missing; DTEND takes priority over DURATION; unix_epoch when both are missing
