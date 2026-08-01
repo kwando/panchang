@@ -1,4 +1,3 @@
-import gleam/list
 import gleam/option.{None}
 import gleam/time/timestamp
 import panchang/ical
@@ -42,13 +41,13 @@ pub fn icalendar_rfc_6868_correctness_test() {
   let assert Ok(calendar) =
     ical.parse(ical.new_parser(tzdb()), input, None)
 
-  // Python asserts: CN=George Herman ^'Babe^' Ruth decodes to CN="George Herman \"Babe\" Ruth"
-  // Note: ^' is RFC 6868 encoding for double-quote. Our parser does not yet
-  // implement RFC 6868, so CN retains the raw ^' encoding.
+  // Python: https://github.com/collective/icalendar/blob/main/src/icalendar/tests/test_rfc_6868.py
+  // Asserts: CN=George Herman ^'Babe^' Ruth decodes to CN="George Herman \"Babe\" Ruth"
+  // ^' is RFC 6868 encoding for double-quote.
   let assert [event] = calendar.events
   let assert Ok(attendee) = ical.get_property(event, "ATTENDEE")
   let assert Ok(cn) = ical.get_parameter(attendee, "CN")
-  assert cn == "George Herman ^'Babe^' Ruth"
+  assert cn == "George Herman \"Babe\" Ruth"
 }
 
 pub fn icalendar_calendar_with_unicode_correctness_test() {

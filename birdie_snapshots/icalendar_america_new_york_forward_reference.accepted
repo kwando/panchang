@@ -1,6 +1,8 @@
 ---
 version: 1.5.5
 title: icalendar_america_new_york_forward_reference
+file: ./test/panchang/icalendar_test.gleam
+test_name: icalendar_america_new_york_forward_reference_snapshot_test
 ---
 VCALENDAR
   BEGIN:VEVENT

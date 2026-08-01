@@ -428,7 +428,9 @@ fn do_split_first_unquoted(
 // Quoted parameter values must have their surrounding quotes removed, and only
 // \" and \\ are valid escapes inside quoted strings (unlike text values).
 fn unescape_param_value(value: String) -> String {
-  case string.starts_with(value, "\"") && string.ends_with(value, "\"") {
+  let unescaped = case
+    string.starts_with(value, "\"") && string.ends_with(value, "\"")
+  {
     False -> value
     True -> {
       let inner = string.slice(value, 1, string.length(value) - 2)
@@ -437,6 +439,24 @@ fn unescape_param_value(value: String) -> String {
       |> string.concat
     }
   }
+  rfc_6868_unescape(unescaped)
+}
+
+/// Apply RFC 6868 parameter value unescaping.
+///
+/// RFC 6868 defines an escaping mechanism for iCalendar and vCard TEXT
+/// parameter values. It uses `^` as the escape character:
+///
+/// - `^'` (U+005E U+0027) → `"` (U+0022, quotation mark)
+/// - `^^` (U+005E U+005E) → `^` (U+005E, circumflex accent)
+/// - `^n` (U+005E U+006E) → U+000A (line feed)
+///
+fn rfc_6868_unescape(value: String) -> String {
+  // Order matters: ^' first so ^^' doesn't become "
+  value
+  |> string.replace("^'", "\"")
+  |> string.replace("^^", "^")
+  |> string.replace("^n", "\n")
 }
 
 fn do_unescape_param_text(
@@ -952,13 +972,14 @@ fn build_event(
     |> result.unwrap(timestamp.unix_epoch)
   let end_time = case dtend_prop {
     Ok(prop) -> parse_datetime(prop, parser, fallback_tz)
-    Error(_) -> case duration_prop {
-      Ok(prop) ->
-        parse_duration(prop.value)
-        |> result.map(fn(d) { timestamp.add(start_time, d) })
-        |> result.unwrap(timestamp.unix_epoch)
-      Error(_) -> timestamp.unix_epoch
-    }
+    Error(_) ->
+      case duration_prop {
+        Ok(prop) ->
+          parse_duration(prop.value)
+          |> result.map(fn(d) { timestamp.add(start_time, d) })
+          |> result.unwrap(timestamp.unix_epoch)
+        Error(_) -> timestamp.unix_epoch
+      }
   }
 
   let created = extract_timestamp(props, "CREATED", parser)

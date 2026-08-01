@@ -4,12 +4,14 @@ title: icalendar_rfc_6868
 ---
 VCALENDAR
   X-PARAM
-    NEWLINE: "^n"
-    ALL: "^^^'^n"
+    NEWLINE: "
+"
+    ALL: "^"
+"
     UNKNOWN: "^a^ ^asd"
     value: "asd"
   BEGIN:VEVENT
     ATTENDEE
-      CN: "George Herman ^'Babe^' Ruth"
+      CN: "George Herman "Babe" Ruth"
       value: "mailto:babe@example.com"
   END:VEVENT
