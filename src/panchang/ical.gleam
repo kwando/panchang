@@ -164,8 +164,6 @@ pub type ParseError {
   ParseError(message: String)
   /// A date or datetime value could not be parsed.
   DateParseError(message: String, raw: String)
-  /// A duration value could not be parsed.
-  DurationParseError(message: String, raw: String)
 }
 
 /// A raw iCal component, such as `VCALENDAR`, `VEVENT`, or `VTIMEZONE`.
@@ -700,18 +698,17 @@ pub fn parse_date(raw: String) -> Result(calendar.Date, Nil) {
 /// ```
 pub fn parse_datetime(
   raw: String,
-) -> Result(#(calendar.Date, calendar.TimeOfDay, DateTimeKind), ParseError) {
-  use #(date, rest) <- result.try(parse_date_bytes(
-    bit_array.from_string(raw),
-    raw,
-  ))
+) -> Result(#(calendar.Date, calendar.TimeOfDay, DateTimeKind), Nil) {
+  use #(date, rest) <- result.try(
+    parse_date_bytes(bit_array.from_string(raw), raw)
+    |> result.replace_error(Nil),
+  )
 
   case parse_time_bytes(rest) {
     Ok(#(time, <<"Z">>)) | Ok(#(time, <<"z">>)) -> Ok(#(date, time, Utc))
     Ok(#(time, <<>>)) -> Ok(#(date, time, Floating))
     // we got some extra bytes/bits at the end which we dont know hot to handle
-    Ok(#(_, _)) -> Error(DateParseError("Invalid datetime format", raw))
-    Error(_) -> Error(DateParseError("Invalid time", raw))
+    Ok(#(_, _)) | Error(_) -> Error(Nil)
   }
 }
 
@@ -827,20 +824,17 @@ fn parse_time_bytes(
 ///
 /// Fractional seconds are rejected and cause a parse error.
 ///
-pub fn parse_duration(value: String) -> Result(Duration, ParseError) {
+pub fn parse_duration(value: String) -> Result(Duration, Nil) {
   let value = string.uppercase(string.trim(value))
-  let raw = value
-
   use #(value, sign) <- result.try(case bit_array.from_string(value) {
     <<"+P", rest:bits>> | <<"P", rest:bits>> -> Ok(#(rest, 1))
     <<"-P", rest:bits>> -> Ok(#(rest, -1))
-    _ -> Error(DurationParseError("Invalid duration", value))
+    _ -> Error(Nil)
   })
 
   case duration_components(value, 0, False, []) {
-    Ok([]) -> Error(DurationParseError("Duration value is empty", raw))
+    Ok([]) | Error(_) -> Error(Nil)
     Ok(components) -> duration_from_components(components, sign)
-    Error(_) -> Error(DurationParseError("Invalid duration format", raw))
   }
 }
 
@@ -909,7 +903,7 @@ fn duration_components(
 fn duration_from_components(
   components: List(DurationComponent),
   sign: Int,
-) -> Result(Duration, ParseError) {
+) -> Result(Duration, Nil) {
   components
   |> list.fold(0, fn(acc, component) { acc + component_to_seconds(component) })
   |> int.multiply(sign)

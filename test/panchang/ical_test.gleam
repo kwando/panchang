@@ -45,17 +45,13 @@ pub fn parse_datetime_string_lowercase_z_test() {
 }
 
 pub fn parse_datetime_string_invalid_test() {
-  let assert Error(ical.DateParseError(msg, raw)) =
-    ical.parse_datetime("not-a-datetime")
-  assert msg == "Invalid date format"
-  assert raw == "not-a-datetime"
+  let assert Error(_) = ical.parse_datetime("not-a-datetime")
+    as "should error on bad timestamp"
 }
 
 pub fn parse_datetime_string_invalid_time_test() {
-  let assert Error(ical.DateParseError(msg, raw)) =
-    ical.parse_datetime("20230101T256000")
-  assert msg == "Invalid time"
-  assert raw == "20230101T256000"
+  let assert Error(_) = ical.parse_datetime("20230101T256000")
+    as "should error in invalid times"
 }
 
 pub fn parse_simple_calendar_test() {
