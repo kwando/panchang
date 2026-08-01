@@ -3,13 +3,29 @@ import gleam/option.{None, Some}
 import gleam/string
 import gleam/time/calendar
 import gleam/time/duration
-import gleam/time/timestamp
+import gleam/time/timestamp.{type Timestamp}
 import panchang/ical
 import test_utils.{tzdb}
 
 fn ical_parse(input: String) -> Result(ical.Calendar, ical.ParseError) {
   ical.new_parser(tzdb())
   |> ical.parse(input, None)
+}
+
+fn utc(
+  year: Int,
+  month: Int,
+  day: Int,
+  hour: Int,
+  minute: Int,
+  second: Int,
+) -> Timestamp {
+  let assert Ok(m) = calendar.month_from_int(month)
+  timestamp.from_calendar(
+    calendar.Date(year, m, day),
+    calendar.TimeOfDay(hour, minute, second, 0),
+    calendar.utc_offset,
+  )
 }
 
 pub fn parse_date_test() {
@@ -176,9 +192,7 @@ pub fn parse_event_with_dtstart_dtend_test() {
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
-  let #(start_secs, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(event.start_time)
-  assert start_secs == 1_672_567_200
+  assert event.start_time == utc(2023, 1, 1, 10, 0, 0)
   assert event.all_day == False
 }
 
@@ -379,28 +393,25 @@ pub fn parse_datetime_utc_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000Z")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "UTC")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_672_567_200
+  assert ts == utc(2023, 1, 1, 10, 0, 0)
 }
 
-// parse a datetime with TZID=Europe/Stockholm in winter (CET, UTC+1)
 pub fn parse_datetime_tzid_winter_test() {
   let param = ical.Parameter("TZID", "Europe/Stockholm")
   let prop = ical.Property("DTSTART", [param], "20230101T100000")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "UTC")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_672_563_600
+  // Europe/Stockholm winter = UTC+1 → 10:00 CET = 09:00 UTC
+  assert ts == utc(2023, 1, 1, 9, 0, 0)
 }
 
-// parse a datetime with TZID=Europe/Stockholm in summer (CEST, UTC+2)
 pub fn parse_datetime_tzid_summer_test() {
   let param = ical.Parameter("TZID", "Europe/Stockholm")
   let prop = ical.Property("DTSTART", [param], "20230601T100000")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "UTC")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_685_606_400
+  // Europe/Stockholm summer = UTC+2 → 10:00 CEST = 08:00 UTC
+  assert ts == utc(2023, 6, 1, 8, 0, 0)
 }
 
 // parse a DATE-only value (no time component, VALUE=DATE)
@@ -409,8 +420,7 @@ pub fn parse_datetime_date_only_test() {
   let prop = ical.Property("DTSTART", [param], "20230101")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "UTC")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_672_531_200
+  assert ts == utc(2023, 1, 1, 0, 0, 0)
 }
 
 // parse a floating datetime (no Z, no TZID) with an explicit timezone override (Europe/Stockholm)
@@ -418,8 +428,8 @@ pub fn parse_datetime_floating_with_tz_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "Europe/Stockholm")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_672_563_600
+  // Europe/Stockholm winter = UTC+1 → 10:00 = 09:00 UTC
+  assert ts == utc(2023, 1, 1, 9, 0, 0)
 }
 
 // parse a floating datetime treated as UTC (no timezone override)
@@ -427,8 +437,7 @@ pub fn parse_datetime_floating_as_utc_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "UTC")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_672_567_200
+  assert ts == utc(2023, 1, 1, 10, 0, 0)
 }
 
 // parse an invalid datetime string returns unix_epoch
@@ -452,8 +461,7 @@ pub fn parse_datetime_lowercase_z_test() {
   let prop = ical.Property("DTSTART", [], "20230101t100000z")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "UTC")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_672_567_200
+  assert ts == utc(2023, 1, 1, 10, 0, 0)
 }
 
 // parse a datetime that falls in a DST gap (spring forward) — America/New_York
@@ -462,8 +470,8 @@ pub fn parse_datetime_dst_gap_test() {
   let prop = ical.Property("DTSTART", [param], "20240310T033000")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "UTC")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_710_055_800
+  // Spring forward: 03:30 EDT = 07:30 UTC
+  assert ts == utc(2024, 3, 10, 7, 30, 0)
 }
 
 // parse a datetime that falls in a DST overlap (fall back) — Europe/Stockholm
@@ -472,8 +480,8 @@ pub fn parse_datetime_dst_overlap_test() {
   let prop = ical.Property("DTSTART", [param], "20241027T023000")
   let parser = make_test_parser()
   let ts = ical.parse_timestamp(prop, parser, "UTC")
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
-  assert secs == 1_729_989_000
+  // Fall back: 02:30 CEST = 00:30 UTC (DST overlap picks first occurrence)
+  assert ts == utc(2024, 10, 27, 0, 30, 0)
 }
 
 // parse a calendar with floating datetime using Europe/Stockholm timezone override
@@ -497,8 +505,8 @@ pub fn parse_calendar_with_timezone_test() {
   assert calendar.timezone == "Europe/Stockholm"
 
   let assert [event] = calendar.events
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.start_time)
-  assert secs == 1_672_563_600
+  // Europe/Stockholm winter = UTC+1 → 10:00 = 09:00 UTC
+  assert event.start_time == utc(2023, 1, 1, 9, 0, 0)
 }
 
 // parse a calendar with floating datetime using America/New_York timezone override
@@ -522,8 +530,8 @@ pub fn parse_with_timezone_test() {
   assert calendar.timezone == "America/New_York"
 
   let assert [event] = calendar.events
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.start_time)
-  assert secs == 1_672_585_200
+  // America/New_York winter = UTC-5 → 10:00 EST = 15:00 UTC
+  assert event.start_time == utc(2023, 1, 1, 15, 0, 0)
 }
 
 // verify floating CREATED, LAST-MODIFIED, and DTSTAMP are resolved using the
@@ -557,18 +565,18 @@ pub fn parse_floating_timestamps_with_timezone_test() {
   let assert [event] = calendar.events as "should have one event"
 
   let assert Some(created) = event.created
-  let assert #(1_672_563_600, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(created)
+  // Europe/Stockholm winter = UTC+1 → 10:00 = 09:00 UTC
+  assert created == utc(2023, 1, 1, 9, 0, 0)
     as "should use Europe/Stockholm to resolve floating CREATED"
 
   let assert Some(last_modified) = event.last_modified
-  let assert #(1_672_567_200, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(last_modified)
+  // 11:00 = 10:00 UTC
+  assert last_modified == utc(2023, 1, 1, 10, 0, 0)
     as "should use Europe/Stockholm to resolve floating LAST-MODIFIED"
 
   let assert Some(generated_at) = event.generated_at
-  let assert #(1_672_570_800, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(generated_at)
+  // 12:00 = 11:00 UTC
+  assert generated_at == utc(2023, 1, 1, 11, 0, 0)
     as "should use Europe/Stockholm to resolve floating DTSTAMP"
 }
 
@@ -679,20 +687,14 @@ pub fn parse_event_details_test() {
 
   let assert Ok(ts) = list.find(events, fn(e) { e.uid == "timestamps@test" })
   let assert Some(created) = ts.created
-  let assert #(1_672_560_000, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(created)
-    as "CREATED=20230101T080000Z should be 1_672_560_000"
+  assert created == utc(2023, 1, 1, 8, 0, 0)
 
   let assert Some(last_modified) = ts.last_modified
-  let assert #(1_672_650_000, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(last_modified)
-    as "LAST-MODIFIED=20230102T090000Z should be 1_672_650_000"
+  assert last_modified == utc(2023, 1, 2, 9, 0, 0)
 
   let assert Ok(ds) = list.find(events, fn(e) { e.uid == "dtstamp@test" })
   let assert Some(generated_at) = ds.generated_at
-  let assert #(1_672_574_400, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(generated_at)
-    as "DTSTAMP=20230101T120000Z should be 1_672_574_400"
+  assert generated_at == utc(2023, 1, 1, 12, 0, 0)
 }
 
 // parse a calendar as a tree, verify root component kind and properties
@@ -1045,8 +1047,8 @@ pub fn parse_lowercase_property_names_test() {
   let assert [p] = dtstart_prop.params
   assert p.name == "TZID"
   assert p.value == "Europe/Stockholm"
-  let assert #(1_672_563_600, _) =
-    timestamp.to_unix_seconds_and_nanoseconds(param_event.start_time)
+  // tzid=Europe/Stockholm winter = UTC+1 → 10:00 = 09:00 UTC
+  assert param_event.start_time == utc(2023, 1, 1, 9, 0, 0)
 }
 
 // get_property is case-insensitive when searching by name
@@ -1188,12 +1190,12 @@ pub fn event_dtend_tests() {
   let events = calendar.events
 
   let assert Ok(dur) = list.find(events, fn(e) { e.uid == "duration@test" })
-  let #(dur_end, _) = timestamp.to_unix_seconds_and_nanoseconds(dur.end_time)
-  assert dur_end == 1_672_570_800
+  // DTSTART + DURATION:PT1H = 2023-01-01 11:00:00 UTC
+  assert dur.end_time == utc(2023, 1, 1, 11, 0, 0)
 
   let assert Ok(both) = list.find(events, fn(e) { e.uid == "both@test" })
-  let #(both_end, _) = timestamp.to_unix_seconds_and_nanoseconds(both.end_time)
-  assert both_end == 1_672_574_400
+  // DTEND=20230101T120000Z takes priority over DURATION:PT30M
+  assert both.end_time == utc(2023, 1, 1, 12, 0, 0)
 
   let assert Ok(no_end) = list.find(events, fn(e) { e.uid == "no-end@test" })
   assert no_end.end_time == timestamp.unix_epoch
