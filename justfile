@@ -12,3 +12,6 @@ watch_tests:
 
 serve_docs:
     caddy file-server --root build/dev/docs/{{ project_name }}
+
+push:
+    git push & git push github & wait
