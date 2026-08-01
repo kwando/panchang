@@ -4,6 +4,7 @@ import gleam/string
 import gleam/time/calendar
 import gleam/time/duration
 import gleam/time/timestamp.{type Timestamp}
+import global_value
 import panchang/ical
 import test_utils.{tzdb}
 
@@ -388,100 +389,91 @@ pub fn parse_property_with_params_in_raw_test() {
   assert loc_prop.value == "Conference Room"
 }
 
-// parse a UTC datetime string (ending in Z)
-pub fn parse_datetime_utc_test() {
-  let prop = ical.Property("DTSTART", [], "20230101T100000Z")
+/// Assert that `parse_timestamp` with the given property parameters, value,
+/// and fallback timezone produces the expected timestamp.
+fn check_ts(
+  params: List(ical.Parameter),
+  value: String,
+  fallback_tz: String,
+  expected: Timestamp,
+) {
+  let prop = ical.Property("DTSTART", params, value)
   let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
-  assert ts == utc(2023, 1, 1, 10, 0, 0)
+  assert ical.parse_timestamp(prop, parser, fallback_tz) == expected
+}
+
+pub fn parse_datetime_utc_test() {
+  check_ts([], "20230101T100000Z", "UTC", utc(2023, 1, 1, 10, 0, 0))
 }
 
 pub fn parse_datetime_tzid_winter_test() {
-  let param = ical.Parameter("TZID", "Europe/Stockholm")
-  let prop = ical.Property("DTSTART", [param], "20230101T100000")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
   // Europe/Stockholm winter = UTC+1 → 10:00 CET = 09:00 UTC
-  assert ts == utc(2023, 1, 1, 9, 0, 0)
+  check_ts(
+    [ical.Parameter("TZID", "Europe/Stockholm")],
+    "20230101T100000",
+    "UTC",
+    utc(2023, 1, 1, 9, 0, 0),
+  )
 }
 
 pub fn parse_datetime_tzid_summer_test() {
-  let param = ical.Parameter("TZID", "Europe/Stockholm")
-  let prop = ical.Property("DTSTART", [param], "20230601T100000")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
   // Europe/Stockholm summer = UTC+2 → 10:00 CEST = 08:00 UTC
-  assert ts == utc(2023, 6, 1, 8, 0, 0)
+  check_ts(
+    [ical.Parameter("TZID", "Europe/Stockholm")],
+    "20230601T100000",
+    "UTC",
+    utc(2023, 6, 1, 8, 0, 0),
+  )
 }
 
-// parse a DATE-only value (no time component, VALUE=DATE)
 pub fn parse_datetime_date_only_test() {
-  let param = ical.Parameter("VALUE", "DATE")
-  let prop = ical.Property("DTSTART", [param], "20230101")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
-  assert ts == utc(2023, 1, 1, 0, 0, 0)
+  check_ts(
+    [ical.Parameter("VALUE", "DATE")],
+    "20230101",
+    "UTC",
+    utc(2023, 1, 1, 0, 0, 0),
+  )
 }
 
-// parse a floating datetime (no Z, no TZID) with an explicit timezone override (Europe/Stockholm)
 pub fn parse_datetime_floating_with_tz_test() {
-  let prop = ical.Property("DTSTART", [], "20230101T100000")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "Europe/Stockholm")
   // Europe/Stockholm winter = UTC+1 → 10:00 = 09:00 UTC
-  assert ts == utc(2023, 1, 1, 9, 0, 0)
+  check_ts([], "20230101T100000", "Europe/Stockholm", utc(2023, 1, 1, 9, 0, 0))
 }
 
-// parse a floating datetime treated as UTC (no timezone override)
 pub fn parse_datetime_floating_as_utc_test() {
-  let prop = ical.Property("DTSTART", [], "20230101T100000")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
-  assert ts == utc(2023, 1, 1, 10, 0, 0)
+  check_ts([], "20230101T100000", "UTC", utc(2023, 1, 1, 10, 0, 0))
 }
 
-// parse an invalid datetime string returns unix_epoch
 pub fn parse_datetime_invalid_test() {
-  let prop = ical.Property("DTSTART", [], "not-a-date")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
-  assert ts == timestamp.unix_epoch
+  check_ts([], "not-a-date", "UTC", timestamp.unix_epoch)
 }
 
-// parse an empty datetime string returns unix_epoch
 pub fn parse_datetime_empty_test() {
-  let prop = ical.Property("DTSTART", [], "")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
-  assert ts == timestamp.unix_epoch
+  check_ts([], "", "UTC", timestamp.unix_epoch)
 }
 
-// parse a UTC datetime with lowercase "z" suffix
 pub fn parse_datetime_lowercase_z_test() {
-  let prop = ical.Property("DTSTART", [], "20230101t100000z")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
-  assert ts == utc(2023, 1, 1, 10, 0, 0)
+  check_ts([], "20230101t100000z", "UTC", utc(2023, 1, 1, 10, 0, 0))
 }
 
-// parse a datetime that falls in a DST gap (spring forward) — America/New_York
 pub fn parse_datetime_dst_gap_test() {
-  let param = ical.Parameter("TZID", "America/New_York")
-  let prop = ical.Property("DTSTART", [param], "20240310T033000")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
   // Spring forward: 03:30 EDT = 07:30 UTC
-  assert ts == utc(2024, 3, 10, 7, 30, 0)
+  check_ts(
+    [ical.Parameter("TZID", "America/New_York")],
+    "20240310T033000",
+    "UTC",
+    utc(2024, 3, 10, 7, 30, 0),
+  )
 }
 
-// parse a datetime that falls in a DST overlap (fall back) — Europe/Stockholm
 pub fn parse_datetime_dst_overlap_test() {
-  let param = ical.Parameter("TZID", "Europe/Stockholm")
-  let prop = ical.Property("DTSTART", [param], "20241027T023000")
-  let parser = make_test_parser()
-  let ts = ical.parse_timestamp(prop, parser, "UTC")
   // Fall back: 02:30 CEST = 00:30 UTC (DST overlap picks first occurrence)
-  assert ts == utc(2024, 10, 27, 0, 30, 0)
+  check_ts(
+    [ical.Parameter("TZID", "Europe/Stockholm")],
+    "20241027T023000",
+    "UTC",
+    utc(2024, 10, 27, 0, 30, 0),
+  )
 }
 
 // parse a calendar with floating datetime using Europe/Stockholm timezone override
@@ -1155,7 +1147,9 @@ pub fn parse_quoted_params_test() {
 }
 
 fn make_test_parser() -> ical.Parser {
-  ical.new_parser(tzdb())
+  global_value.create_with_unique_name("test-parser", fn() {
+    ical.new_parser(tzdb())
+  })
 }
 
 // DURATION fallback when DTEND is missing; DTEND takes priority over DURATION; unix_epoch when both are missing
