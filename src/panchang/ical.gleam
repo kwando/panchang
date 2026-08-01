@@ -616,7 +616,7 @@ fn extract_timestamp(
 ) -> Option(Timestamp) {
   props
   |> list.find(fn(p) { name_eq(p.name, name) })
-  |> result.map(fn(p) { parse_datetime(p, parser, "UTC") })
+  |> result.map(fn(p) { parse_timestamp(p, parser, "UTC") })
   |> option.from_result
 }
 
@@ -681,10 +681,10 @@ fn parse_date_bytes(
 /// ```gleam
 /// ical.parse_date("20230101") // -> Ok(Date(2023, Jan, 1))
 /// ```
-pub fn parse_date(raw: String) -> Result(calendar.Date, ParseError) {
+pub fn parse_date(raw: String) -> Result(calendar.Date, Nil) {
   case parse_date_bytes(bit_array.from_string(raw), raw) {
     Ok(#(date, <<>>)) -> Ok(date)
-    _ -> Error(DateParseError("Invalid date format", raw))
+    _ -> Error(Nil)
   }
 }
 
@@ -697,7 +697,7 @@ pub fn parse_date(raw: String) -> Result(calendar.Date, ParseError) {
 /// ical.parse_datetime_string("20230101T100000Z")
 /// // -> Ok(#(Date(2023, Jan, 1), TimeOfDay(10, 0, 0, 0), Utc))
 /// ```
-pub fn parse_datetime_string(
+pub fn parse_datetime(
   raw: String,
 ) -> Result(#(calendar.Date, calendar.TimeOfDay, DateTimeKind), ParseError) {
   use #(date, rest) <- result.try(parse_date_bytes(
@@ -728,7 +728,7 @@ pub fn parse_datetime_string(
 /// is used for floating datetimes. The calendar's `X-WR-TIMEZONE` is handled by
 /// the caller before this function is invoked.
 @internal
-pub fn parse_datetime(
+pub fn parse_timestamp(
   prop: Property,
   parser: Parser,
   fallback_tz: String,
@@ -948,10 +948,10 @@ fn build_event(
 
   let start_time =
     dtstart_prop
-    |> result.map(fn(p) { parse_datetime(p, parser, fallback_tz) })
+    |> result.map(fn(p) { parse_timestamp(p, parser, fallback_tz) })
     |> result.unwrap(timestamp.unix_epoch)
   let end_time = case dtend_prop {
-    Ok(prop) -> parse_datetime(prop, parser, fallback_tz)
+    Ok(prop) -> parse_timestamp(prop, parser, fallback_tz)
     Error(_) ->
       case duration_prop {
         Ok(prop) ->

@@ -24,8 +24,7 @@ pub fn parse_date_invalid_test() {
 }
 
 pub fn parse_datetime_string_utc_test() {
-  let assert Ok(#(date, time, kind)) =
-    ical.parse_datetime_string("20230101T100000Z")
+  let assert Ok(#(date, time, kind)) = ical.parse_datetime("20230101T100000Z")
   assert date.year == 2023
   assert date.month == calendar.January
   assert date.day == 1
@@ -35,8 +34,7 @@ pub fn parse_datetime_string_utc_test() {
 }
 
 pub fn parse_datetime_string_floating_test() {
-  let assert Ok(#(date, time, kind)) =
-    ical.parse_datetime_string("20230101T100000")
+  let assert Ok(#(date, time, kind)) = ical.parse_datetime("20230101T100000")
   assert date.year == 2023
   assert date.month == calendar.January
   assert date.day == 1
@@ -46,21 +44,20 @@ pub fn parse_datetime_string_floating_test() {
 }
 
 pub fn parse_datetime_string_lowercase_z_test() {
-  let assert Ok(#(_, _, kind)) =
-    ical.parse_datetime_string("20230101t100000z")
+  let assert Ok(#(_, _, kind)) = ical.parse_datetime("20230101t100000z")
   assert kind == ical.Utc
 }
 
 pub fn parse_datetime_string_invalid_test() {
   let assert Error(ical.DateParseError(msg, raw)) =
-    ical.parse_datetime_string("not-a-datetime")
+    ical.parse_datetime("not-a-datetime")
   assert msg == "Invalid date format"
   assert raw == "not-a-datetime"
 }
 
 pub fn parse_datetime_string_invalid_time_test() {
   let assert Error(ical.DateParseError(msg, raw)) =
-    ical.parse_datetime_string("20230101T256000")
+    ical.parse_datetime("20230101T256000")
   assert msg == "Invalid time"
   assert raw == "20230101T256000"
 }
@@ -381,7 +378,7 @@ pub fn parse_property_with_params_in_raw_test() {
 pub fn parse_datetime_utc_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000Z")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_567_200
 }
@@ -391,7 +388,7 @@ pub fn parse_datetime_tzid_winter_test() {
   let param = ical.Parameter("TZID", "Europe/Stockholm")
   let prop = ical.Property("DTSTART", [param], "20230101T100000")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_563_600
 }
@@ -401,7 +398,7 @@ pub fn parse_datetime_tzid_summer_test() {
   let param = ical.Parameter("TZID", "Europe/Stockholm")
   let prop = ical.Property("DTSTART", [param], "20230601T100000")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_685_606_400
 }
@@ -411,7 +408,7 @@ pub fn parse_datetime_date_only_test() {
   let param = ical.Parameter("VALUE", "DATE")
   let prop = ical.Property("DTSTART", [param], "20230101")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_531_200
 }
@@ -420,7 +417,7 @@ pub fn parse_datetime_date_only_test() {
 pub fn parse_datetime_floating_with_tz_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "Europe/Stockholm")
+  let ts = ical.parse_timestamp(prop, parser, "Europe/Stockholm")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_563_600
 }
@@ -429,7 +426,7 @@ pub fn parse_datetime_floating_with_tz_test() {
 pub fn parse_datetime_floating_as_utc_test() {
   let prop = ical.Property("DTSTART", [], "20230101T100000")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_567_200
 }
@@ -438,7 +435,7 @@ pub fn parse_datetime_floating_as_utc_test() {
 pub fn parse_datetime_invalid_test() {
   let prop = ical.Property("DTSTART", [], "not-a-date")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   assert ts == timestamp.unix_epoch
 }
 
@@ -446,7 +443,7 @@ pub fn parse_datetime_invalid_test() {
 pub fn parse_datetime_empty_test() {
   let prop = ical.Property("DTSTART", [], "")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   assert ts == timestamp.unix_epoch
 }
 
@@ -454,7 +451,7 @@ pub fn parse_datetime_empty_test() {
 pub fn parse_datetime_lowercase_z_test() {
   let prop = ical.Property("DTSTART", [], "20230101t100000z")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_672_567_200
 }
@@ -464,7 +461,7 @@ pub fn parse_datetime_dst_gap_test() {
   let param = ical.Parameter("TZID", "America/New_York")
   let prop = ical.Property("DTSTART", [param], "20240310T033000")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_710_055_800
 }
@@ -474,7 +471,7 @@ pub fn parse_datetime_dst_overlap_test() {
   let param = ical.Parameter("TZID", "Europe/Stockholm")
   let prop = ical.Property("DTSTART", [param], "20241027T023000")
   let parser = make_test_parser()
-  let ts = ical.parse_datetime(prop, parser, "UTC")
+  let ts = ical.parse_timestamp(prop, parser, "UTC")
   let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(ts)
   assert secs == 1_729_989_000
 }
