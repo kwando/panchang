@@ -6,6 +6,7 @@ Calendar
   version: "2.0"
   prodid: "-//collective//icalendar//EN"
   timezone: "UTC"
+  issues: []
   Event
     uid: "77D80D14-906B-4257-963F-85B1E734DBB6"
     summary: ""
@@ -20,3 +21,5 @@ Calendar
     organizer: -
     attendees: []
     all_day: False
+    issues: []
+

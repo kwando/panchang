@@ -99,11 +99,12 @@ pub fn render_calendar(calendar: ical.Calendar) -> String {
   let version = "  version: " <> quote(calendar.version) <> "\n"
   let prodid = "  prodid: " <> quote(calendar.prodid) <> "\n"
   let timezone = "  timezone: " <> quote(calendar.timezone) <> "\n"
+  let issues = render_issues("  ", calendar.issues)
   let events =
     calendar.events
     |> list.map(render_event(_, 1))
     |> string.join("\n")
-  header <> version <> prodid <> timezone <> events
+  header <> version <> prodid <> timezone <> issues <> events
 }
 
 fn render_event(event: ical.Event, depth: Int) -> String {
@@ -116,13 +117,8 @@ fn render_event(event: ical.Event, depth: Int) -> String {
       render_field(indent, "description", event.description, quote),
       render_field(indent, "location", event.location, quote),
       render_field(indent, "url", event.url, quote),
-      render_field(
-        indent,
-        "start_time",
-        Some(event.start_time),
-        render_timestamp,
-      ),
-      render_field(indent, "end_time", Some(event.end_time), render_timestamp),
+      render_field(indent, "start_time", event.start_time, render_timestamp),
+      render_field(indent, "end_time", event.end_time, render_timestamp),
       render_field(indent, "created", event.created, render_timestamp),
       render_field(
         indent,
@@ -134,9 +130,42 @@ fn render_event(event: ical.Event, depth: Int) -> String {
       render_organizer_block(indent, event.organizer),
       render_attendees_block(indent, event.attendees),
       render_field(indent, "all_day", event.all_day, bool.to_string),
+      render_issues(indent <> "  ", event.issues),
     ]
     |> string.join("\n")
   header <> body
+}
+
+fn render_issues(indent: String, issues: List(ical.ParseIssue)) -> String {
+  case issues {
+    [] -> indent <> "issues: []\n"
+    _ -> {
+      let rendered =
+        issues
+        |> list.map(fn(issue) {
+          indent <> "  - " <> issue_to_string(issue) <> "\n"
+        })
+        |> string.concat
+      indent <> "issues:\n" <> rendered
+    }
+  }
+}
+
+fn issue_to_string(issue: ical.ParseIssue) -> String {
+  case issue {
+    ical.IssueMissingRequiredProperty(property) ->
+      "MissingRequiredProperty(" <> quote(property) <> ")"
+    ical.IssueDuplicateProperty(property) ->
+      "DuplicateProperty(" <> quote(property) <> ")"
+    ical.IssueInvalidPropertyValue(property, raw) ->
+      "InvalidPropertyValue(" <> quote(property) <> ", " <> quote(raw) <> ")"
+    ical.IssueConflictingProperties(first, second) ->
+      "ConflictingProperties(" <> quote(first) <> ", " <> quote(second) <> ")"
+    ical.IssueUnknownTimezone(timezone) ->
+      "UnknownTimezone(" <> quote(timezone) <> ")"
+    ical.IssueNonexistentLocalTime(timezone) ->
+      "NonexistentLocalTime(" <> quote(timezone) <> ")"
+  }
 }
 
 fn render_field(

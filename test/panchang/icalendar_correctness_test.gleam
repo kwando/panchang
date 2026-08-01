@@ -1,4 +1,4 @@
-import gleam/option.{None}
+import gleam/option.{None, Some}
 import gleam/time/timestamp
 import panchang/ical
 import simplifile
@@ -28,7 +28,8 @@ pub fn icalendar_timezoned_correctness_test() {
   let assert [event] = calendar.events
   // Python: https://github.com/collective/icalendar/blob/main/src/icalendar/tests/test_timezoned.py
   // Verifies: DTSTART=20120213T100000 Europe/Vienna = 09:00:00 UTC
-  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(event.start_time)
+  let assert Some(start_time) = event.start_time
+  let #(secs, _) = timestamp.to_unix_seconds_and_nanoseconds(start_time)
   assert secs == 1_329_123_600
 }
 

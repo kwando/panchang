@@ -1,4 +1,5 @@
 import birdie
+import gleam/list
 import gleam/option
 import panchang/ical
 import simplifile
@@ -240,6 +241,14 @@ fn snapshot_calendar(name: String) {
 fn assert_calendar_rejects_unresolved_timezone(name: String) {
   let assert Ok(input) =
     simplifile.read("test/fixtures/icalendar/" <> name <> ".ics")
-  let assert Error(ical.UnknownTimezone(_)) =
+  let assert Ok(calendar) =
     ical.parse(ical.new_parser(tzdb()), input, option.None)
+  assert list.any(calendar.events, fn(event) {
+    list.any(event.issues, fn(issue) {
+      case issue {
+        ical.IssueUnknownTimezone(_) -> True
+        _ -> False
+      }
+    })
+  })
 }

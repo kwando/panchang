@@ -139,8 +139,8 @@ pub fn parse_event_with_parameters_test() {
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
-  assert event.start_time != timestamp.unix_epoch
-  assert event.end_time != timestamp.unix_epoch
+  let assert Some(_) = event.start_time
+  let assert Some(_) = event.end_time
 
   let assert Ok(dtstart_prop) =
     list.find(event.properties, fn(p: ical.Property) { p.name == "DTSTART" })
@@ -168,7 +168,7 @@ pub fn parse_event_with_dtstart_dtend_test() {
   let assert Ok(calendar) = ical_parse(input)
   let assert [event] = calendar.events
 
-  assert event.start_time == utc(2023, 1, 1, 10, 0, 0)
+  assert event.start_time == Some(utc(2023, 1, 1, 10, 0, 0))
   assert event.all_day == False
 }
 
@@ -421,11 +421,15 @@ pub fn parse_datetime_floating_as_utc_test() {
 }
 
 pub fn parse_datetime_invalid_test() {
-  check_ts([], "not-a-date", "UTC", timestamp.unix_epoch)
+  let prop = ical.Property("DTSTART", [], "not-a-date")
+  let assert Error(ical.InvalidPropertyValue("DTSTART", "not-a-date")) =
+    ical.parse_timestamp(prop, default_parser(), "UTC")
 }
 
 pub fn parse_datetime_empty_test() {
-  check_ts([], "", "UTC", timestamp.unix_epoch)
+  let prop = ical.Property("DTSTART", [], "")
+  let assert Error(ical.InvalidPropertyValue("DTSTART", "")) =
+    ical.parse_timestamp(prop, default_parser(), "UTC")
 }
 
 pub fn parse_rejects_unknown_timezone_test() {
@@ -442,7 +446,9 @@ pub fn parse_rejects_unknown_timezone_test() {
       "
     |> test_utils.trim_margin
 
-  let assert Error(ical.UnknownTimezone("Unknown/Timezone")) = ical_parse(input)
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+  assert event.issues == [ical.IssueUnknownTimezone("Unknown/Timezone")]
 }
 
 pub fn parse_rejects_nonexistent_local_time_test() {
@@ -459,8 +465,9 @@ pub fn parse_rejects_nonexistent_local_time_test() {
       "
     |> test_utils.trim_margin
 
-  let assert Error(ical.NonexistentLocalTime("America/New_York")) =
-    ical_parse(input)
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+  assert event.issues == [ical.IssueNonexistentLocalTime("America/New_York")]
 }
 
 pub fn parse_datetime_lowercase_z_test() {
@@ -509,7 +516,7 @@ pub fn parse_calendar_with_timezone_test() {
 
   let assert [event] = calendar.events
   // Europe/Stockholm winter = UTC+1 → 10:00 = 09:00 UTC
-  assert event.start_time == utc(2023, 1, 1, 9, 0, 0)
+  assert event.start_time == Some(utc(2023, 1, 1, 9, 0, 0))
 }
 
 // parse a calendar with floating datetime using America/New_York timezone override
@@ -534,7 +541,7 @@ pub fn parse_with_timezone_test() {
 
   let assert [event] = calendar.events
   // America/New_York winter = UTC-5 → 10:00 EST = 15:00 UTC
-  assert event.start_time == utc(2023, 1, 1, 15, 0, 0)
+  assert event.start_time == Some(utc(2023, 1, 1, 15, 0, 0))
 }
 
 // verify floating CREATED, LAST-MODIFIED, and DTSTAMP are resolved using the
@@ -577,9 +584,9 @@ pub fn parse_floating_timestamps_with_timezone_test() {
   assert last_modified == utc(2023, 1, 1, 10, 0, 0)
     as "should use Europe/Stockholm to resolve floating LAST-MODIFIED"
 
-  let assert Some(generated_at) = event.generated_at
+  let generated_at = event.generated_at
   // 12:00 = 11:00 UTC
-  assert generated_at == utc(2023, 1, 1, 11, 0, 0)
+  assert generated_at == Some(utc(2023, 1, 1, 11, 0, 0))
     as "should use Europe/Stockholm to resolve floating DTSTAMP"
 }
 
@@ -696,8 +703,8 @@ pub fn parse_event_details_test() {
   assert last_modified == utc(2023, 1, 2, 9, 0, 0)
 
   let assert Ok(ds) = list.find(events, fn(e) { e.uid == "dtstamp@test" })
-  let assert Some(generated_at) = ds.generated_at
-  assert generated_at == utc(2023, 1, 1, 12, 0, 0)
+  let generated_at = ds.generated_at
+  assert generated_at == Some(utc(2023, 1, 1, 12, 0, 0))
 }
 
 // parse a calendar as a tree, verify root component kind and properties
@@ -918,8 +925,8 @@ pub fn get_property_test() {
       description: "",
       location: "",
       url: "",
-      start_time: timestamp.unix_epoch,
-      end_time: timestamp.unix_epoch,
+      start_time: None,
+      end_time: None,
       created: None,
       last_modified: None,
       generated_at: None,
@@ -935,6 +942,7 @@ pub fn get_property_test() {
         ical.Property("SUMMARY", [], "Meeting"),
         ical.Property("UID", [], "123@test"),
       ],
+      issues: [],
     )
 
   let assert Ok(prop) = ical.get_property(event, "DTSTART")
@@ -1051,7 +1059,7 @@ pub fn parse_lowercase_property_names_test() {
   assert p.name == "TZID"
   assert p.value == "Europe/Stockholm"
   // tzid=Europe/Stockholm winter = UTC+1 → 10:00 = 09:00 UTC
-  assert param_event.start_time == utc(2023, 1, 1, 9, 0, 0)
+  assert param_event.start_time == Some(utc(2023, 1, 1, 9, 0, 0))
 }
 
 // get_property is case-insensitive when searching by name
@@ -1063,8 +1071,8 @@ pub fn get_property_lowercase_search_test() {
       description: "",
       location: "",
       url: "",
-      start_time: timestamp.unix_epoch,
-      end_time: timestamp.unix_epoch,
+      start_time: None,
+      end_time: None,
       created: None,
       last_modified: None,
       generated_at: None,
@@ -1072,6 +1080,7 @@ pub fn get_property_lowercase_search_test() {
       attendees: [],
       all_day: False,
       properties: [ical.Property("DTSTART", [], "20230101T100000Z")],
+      issues: [],
     )
 
   let assert Ok(prop) = ical.get_property(event, "dtstart")
@@ -1190,14 +1199,14 @@ pub fn event_dtend_tests() {
 
   let assert Ok(dur) = list.find(events, fn(e) { e.uid == "duration@test" })
   // DTSTART + DURATION:PT1H = 2023-01-01 11:00:00 UTC
-  assert dur.end_time == utc(2023, 1, 1, 11, 0, 0)
+  assert dur.end_time == Some(utc(2023, 1, 1, 11, 0, 0))
 
   let assert Ok(both) = list.find(events, fn(e) { e.uid == "both@test" })
   // DTEND=20230101T120000Z takes priority over DURATION:PT30M
-  assert both.end_time == utc(2023, 1, 1, 12, 0, 0)
+  assert both.end_time == Some(utc(2023, 1, 1, 12, 0, 0))
 
   let assert Ok(no_end) = list.find(events, fn(e) { e.uid == "no-end@test" })
-  assert no_end.end_time == timestamp.unix_epoch
+  assert no_end.end_time == None
 }
 
 fn default_parser() -> ical.Parser {

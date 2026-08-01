@@ -28,6 +28,8 @@ pub type Calendar {
     timezone: String,
     /// All parsed VEVENT components.
     events: List(Event),
+    /// Diagnostics for recoverable calendar-level problems.
+    issues: List(ParseIssue),
   )
 }
 
@@ -38,7 +40,8 @@ pub type Calendar {
 ///
 pub type Event {
   Event(
-    /// The globally unique identifier for this event.
+    /// The globally unique identifier for this event. Empty when missing; see
+    /// `issues` for the associated diagnostic.
     uid: String,
     /// The event title. Empty string if not present.
     summary: String,
@@ -48,18 +51,15 @@ pub type Event {
     location: String,
     /// A URL associated with the event. Empty string if not present.
     url: String,
-    /// The start time as an unambiguous timestamp. Returns `unix_epoch` if
-    /// missing or unparseable.
-    start_time: Timestamp,
-    /// The end time as an unambiguous timestamp. Returns `unix_epoch` if
-    /// missing or unparseable.
-    end_time: Timestamp,
+    /// The start time, if present.
+    start_time: Option(Timestamp),
+    /// The end time, if explicitly specified or derived from `DURATION`.
+    end_time: Option(Timestamp),
     /// The creation timestamp, if present.
     created: Option(Timestamp),
     /// The last-modified timestamp, if present.
     last_modified: Option(Timestamp),
-    /// The data-instance timestamp. UTC time when this iCalendar object was
-    /// generated or revised. Required by RFC 5545 but stored as Option.
+    /// The data-instance timestamp, if present and valid.
     generated_at: Option(Timestamp),
     /// The event organizer, if present.
     organizer: Option(Attendee),
@@ -71,7 +71,19 @@ pub type Event {
     /// All original properties for this event, including DTSTART, DTEND,
     /// LOCATION, DESCRIPTION, ATTENDEE, etc.
     properties: List(Property),
+    /// Diagnostics for recoverable problems in this VEVENT.
+    issues: List(ParseIssue),
   )
+}
+
+/// A recoverable iCalendar validation or conversion problem.
+pub type ParseIssue {
+  IssueMissingRequiredProperty(property: String)
+  IssueDuplicateProperty(property: String)
+  IssueInvalidPropertyValue(property: String, raw: String)
+  IssueConflictingProperties(first: String, second: String)
+  IssueUnknownTimezone(timezone: String)
+  IssueNonexistentLocalTime(timezone: String)
 }
 
 /// Participation status of an attendee for a VEVENT, as defined by the
@@ -168,6 +180,14 @@ pub type ParseError {
   UnknownTimezone(timezone: String)
   /// A local datetime does not occur due to a timezone offset transition.
   NonexistentLocalTime(timezone: String)
+  /// A required property was absent from a component.
+  MissingRequiredProperty(component: String, property: String)
+  /// A property that may occur once occurred multiple times.
+  DuplicateProperty(component: String, property: String)
+  /// A property value is malformed or invalid for its property type.
+  InvalidPropertyValue(property: String, raw: String)
+  /// Properties that cannot coexist appeared in the same component.
+  ConflictingProperties(component: String, first: String, second: String)
 }
 
 /// A raw iCal component, such as `VCALENDAR`, `VEVENT`, or `VTIMEZONE`.
@@ -611,15 +631,36 @@ fn extract_prop(props: List(Property), name: String) -> String {
   |> result.unwrap("")
 }
 
-fn extract_timestamp(
+fn optional_timestamp(
   props: List(Property),
   name: String,
   parser: Parser,
   fallback_tz: String,
-) -> Result(Option(Timestamp), ParseError) {
+) -> #(Option(Timestamp), List(ParseIssue)) {
   case list.find(props, fn(p) { name_eq(p.name, name) }) {
-    Ok(prop) -> parse_timestamp(prop, parser, fallback_tz) |> result.map(Some)
-    Error(_) -> Ok(None)
+    Ok(prop) -> timestamp_or_issue(prop, parser, fallback_tz)
+    Error(_) -> #(None, [])
+  }
+}
+
+fn timestamp_or_issue(
+  prop: Property,
+  parser: Parser,
+  fallback_tz: String,
+) -> #(Option(Timestamp), List(ParseIssue)) {
+  case parse_timestamp(prop, parser, fallback_tz) {
+    Ok(timestamp) -> #(Some(timestamp), [])
+    Error(error) -> #(None, [issue_from_error(error)])
+  }
+}
+
+fn issue_from_error(error: ParseError) -> ParseIssue {
+  case error {
+    UnknownTimezone(timezone) -> IssueUnknownTimezone(timezone)
+    NonexistentLocalTime(timezone) -> IssueNonexistentLocalTime(timezone)
+    InvalidPropertyValue(property, raw) ->
+      IssueInvalidPropertyValue(property, raw)
+    _ -> IssueInvalidPropertyValue("DATE-TIME", "")
   }
 }
 
@@ -724,8 +765,8 @@ pub fn parse_datetime(
 /// - Date-only: `VALUE=DATE:20230101` (treated as midnight UTC)
 /// - Floating: `20230101T100000` (resolved using `fallback_tz`, or UTC)
 ///
-/// Returns a timezone-specific error when a local datetime cannot be resolved.
-/// Empty or otherwise unparseable values return `timestamp.unix_epoch`.
+/// Returns an error when the value is malformed or a local datetime cannot be
+/// resolved.
 ///
 /// Explicit `TZID` parameters take precedence over the fallback timezone, which
 /// is used for floating datetimes. The calendar's `X-WR-TIMEZONE` is handled by
@@ -739,14 +780,14 @@ pub fn parse_timestamp(
   let value = prop.value
   use <- bool.guard(
     when: string.is_empty(value),
-    return: Ok(timestamp.unix_epoch),
+    return: Error(InvalidPropertyValue(prop.name, value)),
   )
 
   case parse_date_bytes(bit_array.from_string(value), value) {
     Ok(#(date, <<>>)) -> {
       use <- bool.guard(
         when: !has_param_value_date(prop.params),
-        return: Ok(timestamp.unix_epoch),
+        return: Error(InvalidPropertyValue(prop.name, value)),
       )
 
       Ok(timestamp.from_calendar(
@@ -755,7 +796,7 @@ pub fn parse_timestamp(
         calendar.utc_offset,
       ))
     }
-    Error(_) -> Ok(timestamp.unix_epoch)
+    Error(_) -> Error(InvalidPropertyValue(prop.name, value))
 
     Ok(#(date, time_bits)) -> {
       case parse_time_bytes(time_bits) {
@@ -773,7 +814,7 @@ pub fn parse_timestamp(
             Error(_) -> Error(UnknownTimezone(timezone))
           }
         }
-        Error(_) | Ok(#(_, _)) -> Ok(timestamp.unix_epoch)
+        Error(_) | Ok(#(_, _)) -> Error(InvalidPropertyValue(prop.name, value))
       }
     }
   }
@@ -932,7 +973,9 @@ fn build_event(
   props: List(Property),
   parser: Parser,
   fallback_tz: String,
-) -> Result(Event, ParseError) {
+  requires_dtstart: Bool,
+) -> Event {
+  let issues = event_property_issues(props)
   let uid = extract_prop(props, "UID")
   let summary = extract_prop(props, "SUMMARY")
   let description = extract_prop(props, "DESCRIPTION")
@@ -948,46 +991,45 @@ fn build_event(
     |> result.map(fn(p) { has_param_value_date(p.params) })
     |> result.unwrap(False)
 
-  use start_time <- result.try(case dtstart_prop {
-    Ok(prop) -> parse_timestamp(prop, parser, fallback_tz)
-    Error(_) -> Ok(timestamp.unix_epoch)
-  })
-  use end_time <- result.try(case dtend_prop {
-    Ok(prop) -> parse_timestamp(prop, parser, fallback_tz)
+  let #(start_time, start_issues) = case dtstart_prop, requires_dtstart {
+    Ok(prop), _ -> timestamp_or_issue(prop, parser, fallback_tz)
+    Error(_), True -> #(None, [IssueMissingRequiredProperty("DTSTART")])
+    Error(_), False -> #(None, [])
+  }
+  let #(end_time, end_issues) = case dtend_prop {
+    Ok(prop) -> timestamp_or_issue(prop, parser, fallback_tz)
     Error(_) ->
       case duration_prop {
         Ok(prop) ->
           case parse_duration(prop.value) {
-            Ok(duration) -> Ok(timestamp.add(start_time, duration))
-            Error(_) -> Ok(timestamp.unix_epoch)
+            Ok(duration) ->
+              case start_time {
+                Some(start_time) -> #(
+                  Some(timestamp.add(start_time, duration)),
+                  [],
+                )
+                None -> #(None, [
+                  IssueInvalidPropertyValue("DURATION", prop.value),
+                ])
+              }
+            Error(_) -> #(None, [
+              IssueInvalidPropertyValue("DURATION", prop.value),
+            ])
           }
-        Error(_) -> Ok(timestamp.unix_epoch)
+        Error(_) -> #(None, [])
       }
-  })
+  }
 
-  use created <- result.try(extract_timestamp(
-    props,
-    "CREATED",
-    parser,
-    fallback_tz,
-  ))
-  use last_modified <- result.try(extract_timestamp(
-    props,
-    "LAST-MODIFIED",
-    parser,
-    fallback_tz,
-  ))
-  use generated_at <- result.try(extract_timestamp(
-    props,
-    "DTSTAMP",
-    parser,
-    fallback_tz,
-  ))
-
+  let #(created, created_issues) =
+    optional_timestamp(props, "CREATED", parser, fallback_tz)
+  let #(last_modified, last_modified_issues) =
+    optional_timestamp(props, "LAST-MODIFIED", parser, fallback_tz)
+  let #(generated_at, generated_at_issues) =
+    optional_timestamp(props, "DTSTAMP", parser, fallback_tz)
   let organizer = extract_organizer(props)
   let attendees = extract_attendees(props)
 
-  Ok(Event(
+  Event(
     uid,
     summary,
     description,
@@ -1002,7 +1044,76 @@ fn build_event(
     attendees,
     all_day,
     props,
-  ))
+    issues
+      |> list.append(start_issues)
+      |> list.append(end_issues)
+      |> list.append(created_issues)
+      |> list.append(last_modified_issues)
+      |> list.append(generated_at_issues),
+  )
+}
+
+fn property_value(props: List(Property), name: String) -> Option(String) {
+  case list.find(props, fn(prop) { name_eq(prop.name, name) }) {
+    Ok(prop) ->
+      case string.is_empty(prop.value) {
+        True -> None
+        False -> Some(prop.value)
+      }
+    Error(_) -> None
+  }
+}
+
+fn event_property_issues(props: List(Property)) -> List(ParseIssue) {
+  let singleton_issues =
+    singleton_issues(props, [
+      "UID",
+      "DTSTAMP",
+      "DTSTART",
+      "DTEND",
+      "DURATION",
+      "CREATED",
+      "LAST-MODIFIED",
+      "SUMMARY",
+      "DESCRIPTION",
+      "LOCATION",
+      "URL",
+      "ORGANIZER",
+    ])
+  let uid_issues = case property_value(props, "UID") {
+    Some(_) -> []
+    None -> [IssueMissingRequiredProperty("UID")]
+  }
+
+  case
+    list.find(props, fn(prop) { name_eq(prop.name, "DTEND") }),
+    list.find(props, fn(prop) { name_eq(prop.name, "DURATION") })
+  {
+    Ok(_), Ok(_) ->
+      singleton_issues
+      |> list.append(uid_issues)
+      |> list.append([IssueConflictingProperties("DTEND", "DURATION")])
+    _, _ -> list.append(singleton_issues, uid_issues)
+  }
+}
+
+fn singleton_issues(
+  props: List(Property),
+  names: List(String),
+) -> List(ParseIssue) {
+  case names {
+    [] -> []
+    [name, ..rest] -> {
+      let count =
+        props
+        |> list.filter(fn(prop) { name_eq(prop.name, name) })
+        |> list.length
+      case count > 1 {
+        True -> [IssueDuplicateProperty(name), ..singleton_issues(props, rest)]
+        False -> singleton_issues(props, rest)
+      }
+    }
+  }
 }
 
 fn extract_organizer(props: List(Property)) -> Option(Attendee) {
@@ -1092,15 +1203,50 @@ fn build_calendar(
         }
         Some(tz) -> tz
       }
+      let requires_dtstart =
+        cal_props
+        |> list.find(fn(prop) { name_eq(prop.name, "METHOD") })
+        |> result.is_error
 
-      use events <- result.try(
+      let events =
         cal_children
         |> list.filter(fn(c) { c.kind == "VEVENT" })
-        |> list.try_map(fn(c) { build_event(c.properties, parser, detected_tz) }),
-      )
+        |> list.map(fn(c) {
+          build_event(c.properties, parser, detected_tz, requires_dtstart)
+        })
 
-      Ok(Calendar(version, prodid, detected_tz, events))
+      Ok(Calendar(
+        version,
+        prodid,
+        detected_tz,
+        events,
+        calendar_property_issues(cal_props),
+      ))
     }
     Error(_) -> Error(ParseError("No VCALENDAR component found"))
+  }
+}
+
+fn calendar_property_issues(props: List(Property)) -> List(ParseIssue) {
+  let required_issues = missing_property_issues(props, ["VERSION", "PRODID"])
+  let duplicate_issues =
+    singleton_issues(props, ["VERSION", "PRODID", "METHOD"])
+  list.append(required_issues, duplicate_issues)
+}
+
+fn missing_property_issues(
+  props: List(Property),
+  names: List(String),
+) -> List(ParseIssue) {
+  case names {
+    [] -> []
+    [name, ..rest] ->
+      case property_value(props, name) {
+        Some(_) -> missing_property_issues(props, rest)
+        None -> [
+          IssueMissingRequiredProperty(name),
+          ..missing_property_issues(props, rest)
+        ]
+      }
   }
 }

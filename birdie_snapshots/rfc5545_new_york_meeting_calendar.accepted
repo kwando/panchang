@@ -6,6 +6,7 @@ Calendar
   version: "2.0"
   prodid: "-//RDU Software//NONSGML HandCal//EN"
   timezone: "UTC"
+  issues: []
   Event
     uid: "guid-1.example.com"
     summary: "XYZ Project Review"
@@ -30,3 +31,5 @@ Calendar
         response_requested: True
         cutype: "GROUP"
     all_day: False
+    issues: []
+

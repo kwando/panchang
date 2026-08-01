@@ -1,7 +1,7 @@
 import argv
 import gleam/io
 import gleam/list
-import gleam/option.{None}
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import gleam/time/calendar
@@ -59,15 +59,26 @@ fn error_to_string(error: Error) {
       "cant parse calendar: unknown timezone (" <> timezone <> ")"
     CannotParseCalendar(ical.NonexistentLocalTime(timezone)) ->
       "cant parse calendar: nonexistent local time (" <> timezone <> ")"
+    CannotParseCalendar(ical.MissingRequiredProperty(component, property)) ->
+      "cant parse calendar: missing " <> property <> " in " <> component
+    CannotParseCalendar(ical.DuplicateProperty(component, property)) ->
+      "cant parse calendar: duplicate " <> property <> " in " <> component
+    CannotParseCalendar(ical.InvalidPropertyValue(property, raw)) ->
+      "cant parse calendar: invalid " <> property <> " (" <> raw <> ")"
+    CannotParseCalendar(ical.ConflictingProperties(component, first, second)) ->
+      "cant parse calendar: "
+      <> first
+      <> " conflicts with "
+      <> second
+      <> " in "
+      <> component
     CannotReadTimezoneDatabase -> "failed to initalize timezone database"
   }
 }
 
 fn prettify_calendar(calendar: ical.Calendar) -> Result(String, Error) {
-  let events =
-    calendar.events
-    |> list.sort(fn(a, b) { timestamp.compare(a.start_time, b.start_time) })
-  list.map(events, format_event)
+  calendar.events
+  |> list.map(format_event)
   |> string.join("\n--------------------------------------\n")
   |> Ok
 }
@@ -79,10 +90,14 @@ pub fn format_event(event: ical.Event) -> String {
     |> ansi.bold
     <> "\n"
 
+  let format_time = fn(time) {
+    case time {
+      None -> "-"
+      Some(time) -> timestamp.to_rfc3339(time, calendar.utc_offset)
+    }
+  }
   let times =
-    timestamp.to_rfc3339(event.start_time, calendar.utc_offset)
-    <> " -> "
-    <> timestamp.to_rfc3339(event.end_time, calendar.utc_offset)
+    format_time(event.start_time) <> " -> " <> format_time(event.end_time)
 
   let all_day_flag = case event.all_day {
     True -> " (all day)" |> ansi.dim

@@ -6,6 +6,7 @@ Calendar
   version: "2.0"
   prodid: "-//Plone.org//NONSGML plone.app.event//EN"
   timezone: "Europe/Vienna"
+  issues: []
   Event
     uid: "123456"
     summary: "artsprint 2012"
@@ -20,3 +21,5 @@ Calendar
     organizer: -
     attendees: []
     all_day: False
+    issues: []
+

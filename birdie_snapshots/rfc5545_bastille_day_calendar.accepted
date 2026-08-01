@@ -6,6 +6,7 @@ Calendar
   version: "2.0"
   prodid: "-//hacksw/handcal//NONSGML v1.0//EN"
   timezone: "UTC"
+  issues: []
   Event
     uid: "19970610T172345Z-AF23B2@example.com"
     summary: "Bastille Day Party"
@@ -20,3 +21,5 @@ Calendar
     organizer: -
     attendees: []
     all_day: False
+    issues: []
+

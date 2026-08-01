@@ -6,14 +6,17 @@ Calendar
   version: ""
   prodid: ""
   timezone: "UTC"
+  issues:
+    - MissingRequiredProperty("VERSION")
+    - MissingRequiredProperty("PRODID")
   Event
     uid: "list"
     summary: ""
     description: "These are all the parameters which might come as a list."
     location: ""
     url: ""
-    start_time: "1970-01-01T00:00:00Z"
-    end_time: "1970-01-01T00:00:00Z"
+    start_time: -
+    end_time: -
     created: -
     last_modified: -
     generated_at: -
@@ -35,14 +38,17 @@ Calendar
         response_requested: -
         cutype: -
     all_day: False
+    issues:
+      - MissingRequiredProperty("DTSTART")
+
   Event
     uid: "single"
     summary: ""
     description: "These are all the parameters which might come as a list but here they only have one value."
     location: ""
     url: ""
-    start_time: "1970-01-01T00:00:00Z"
-    end_time: "1970-01-01T00:00:00Z"
+    start_time: -
+    end_time: -
     created: -
     last_modified: -
     generated_at: -
@@ -64,3 +70,6 @@ Calendar
         response_requested: -
         cutype: -
     all_day: False
+    issues:
+      - MissingRequiredProperty("DTSTART")
+

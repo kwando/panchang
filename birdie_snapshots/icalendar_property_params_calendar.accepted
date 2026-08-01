@@ -6,6 +6,7 @@ Calendar
   version: "2.0"
   prodid: "//RESEARCH IN MOTION//BIS 3.0"
   timezone: "UTC"
+  issues: []
   Event
     uid: "XRIMCAL-628059586-522954492-9750559"
     summary: "Test meeting from BB"
@@ -40,3 +41,5 @@ Calendar
         response_requested: True
         cutype: -
     all_day: True
+    issues: []
+

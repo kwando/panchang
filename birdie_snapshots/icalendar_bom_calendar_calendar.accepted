@@ -6,4 +6,7 @@ Calendar
   version: ""
   prodid: ""
   timezone: "UTC"
+  issues:
+    - MissingRequiredProperty("VERSION")
+    - MissingRequiredProperty("PRODID")
 
