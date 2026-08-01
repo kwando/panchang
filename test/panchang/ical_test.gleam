@@ -546,10 +546,15 @@ pub fn parse_floating_timestamps_with_timezone_test() {
       END:VCALENDAR
       "
     |> test_utils.trim_margin
-  let assert Ok(calendar) =
-    ical.parse(ical.new_parser(tzdb()), input, Some("Europe/Stockholm"))
 
-  let assert [event] = calendar.events
+  let timezone = "Europe/Stockholm"
+  let assert Ok(calendar) =
+    ical.parse(ical.new_parser(tzdb()), input, Some(timezone))
+
+  assert calendar.timezone == timezone
+    as "fallback timezone should have been set to Europe/Stockholm"
+
+  let assert [event] = calendar.events as "should have one event"
 
   let assert Some(created) = event.created
   let assert #(1_672_563_600, _) =
@@ -674,17 +679,20 @@ pub fn parse_event_details_test() {
 
   let assert Ok(ts) = list.find(events, fn(e) { e.uid == "timestamps@test" })
   let assert Some(created) = ts.created
-  let #(created_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(created)
-  assert created_secs == 1_672_560_000
+  let assert #(1_672_560_000, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(created)
+    as "CREATED=20230101T080000Z should be 1_672_560_000"
+
   let assert Some(last_modified) = ts.last_modified
-  let #(modified_secs, _) =
+  let assert #(1_672_650_000, _) =
     timestamp.to_unix_seconds_and_nanoseconds(last_modified)
-  assert modified_secs == 1_672_650_000
+    as "LAST-MODIFIED=20230102T090000Z should be 1_672_650_000"
 
   let assert Ok(ds) = list.find(events, fn(e) { e.uid == "dtstamp@test" })
   let assert Some(generated_at) = ds.generated_at
-  let #(gen_secs, _) = timestamp.to_unix_seconds_and_nanoseconds(generated_at)
-  assert gen_secs == 1_672_574_400
+  let assert #(1_672_574_400, _) =
+    timestamp.to_unix_seconds_and_nanoseconds(generated_at)
+    as "DTSTAMP=20230101T120000Z should be 1_672_574_400"
 }
 
 // parse a calendar as a tree, verify root component kind and properties
