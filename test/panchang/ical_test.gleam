@@ -1,6 +1,7 @@
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/string
+import gleam/time/calendar
 import gleam/time/duration
 import gleam/time/timestamp
 import panchang/ical
@@ -9,6 +10,59 @@ import test_utils.{tzdb}
 fn ical_parse(input: String) -> Result(ical.Calendar, ical.ParseError) {
   ical.new_parser(tzdb())
   |> ical.parse(input, None)
+}
+
+pub fn parse_date_test() {
+  let assert Ok(date) = ical.parse_date("20230101")
+  assert date.year == 2023
+  assert date.month == calendar.January
+  assert date.day == 1
+}
+
+pub fn parse_date_invalid_test() {
+  let assert Error(_) = ical.parse_date("not-a-date")
+}
+
+pub fn parse_datetime_string_utc_test() {
+  let assert Ok(#(date, time, kind)) =
+    ical.parse_datetime_string("20230101T100000Z")
+  assert date.year == 2023
+  assert date.month == calendar.January
+  assert date.day == 1
+  assert time.hours == 10
+  assert time.minutes == 0
+  assert kind == ical.Utc
+}
+
+pub fn parse_datetime_string_floating_test() {
+  let assert Ok(#(date, time, kind)) =
+    ical.parse_datetime_string("20230101T100000")
+  assert date.year == 2023
+  assert date.month == calendar.January
+  assert date.day == 1
+  assert time.hours == 10
+  assert time.minutes == 0
+  assert kind == ical.Floating
+}
+
+pub fn parse_datetime_string_lowercase_z_test() {
+  let assert Ok(#(_, _, kind)) =
+    ical.parse_datetime_string("20230101t100000z")
+  assert kind == ical.Utc
+}
+
+pub fn parse_datetime_string_invalid_test() {
+  let assert Error(ical.DateParseError(msg, raw)) =
+    ical.parse_datetime_string("not-a-datetime")
+  assert msg == "Invalid date format"
+  assert raw == "not-a-datetime"
+}
+
+pub fn parse_datetime_string_invalid_time_test() {
+  let assert Error(ical.DateParseError(msg, raw)) =
+    ical.parse_datetime_string("20230101T256000")
+  assert msg == "Invalid time"
+  assert raw == "20230101T256000"
 }
 
 pub fn parse_simple_calendar_test() {

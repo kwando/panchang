@@ -148,6 +148,15 @@ pub type Parameter {
   Parameter(name: String, value: String)
 }
 
+/// Whether a datetime value includes a timezone indicator.
+pub type DateTimeKind {
+  /// The value has a `Z` suffix, indicating UTC.
+  Utc
+  /// The value has no timezone indicator and is interpreted as local time
+  /// (floating datetime in iCal terminology).
+  Floating
+}
+
 /// An error that can occur during parsing.
 pub type ParseError {
   /// A structural parsing error (missing component, unexpected line, etc.)
@@ -623,12 +632,12 @@ fn get_tzid(params: List(Parameter)) -> Result(String, ParseError) {
   }
 }
 
-// Date-only values (VALUE=DATE) have no time component; treat them as
-// midnight UTC so they still produce a valid timestamp.
-fn parse_date_only(raw: String) -> Result(Timestamp, ParseError) {
-  let value = raw
-  case bit_array.from_string(value) {
-    <<y1, y2, y3, y4, m1, m2, d1, d2>>
+fn parse_date_bytes(
+  bits: BitArray,
+  raw: String,
+) -> Result(#(calendar.Date, BitArray), ParseError) {
+  case bits {
+    <<y1, y2, y3, y4, m1, m2, d1, d2, rest:bits>>
       if y1 >= 48
       && y1 <= 57
       && y2 >= 48
@@ -655,12 +664,7 @@ fn parse_date_only(raw: String) -> Result(Timestamp, ParseError) {
         Ok(month_enum) -> {
           let date = calendar.Date(year, month_enum, day)
           case calendar.is_valid_date(date) {
-            True ->
-              Ok(timestamp.from_calendar(
-                date,
-                calendar.TimeOfDay(0, 0, 0, 0),
-                calendar.utc_offset,
-              ))
+            True -> Ok(#(date, rest))
             False -> Error(DateParseError("Invalid date", raw))
           }
         }
@@ -671,32 +675,47 @@ fn parse_date_only(raw: String) -> Result(Timestamp, ParseError) {
   }
 }
 
-// iCal datetime values are fixed-format YYYYMMDDTHHMMSS, so we parse the
-// bytes directly instead of using a general date parser.
-fn parse_datetime_value(
-  _parser: Parser,
+/// Parse an iCal date-only value (`YYYYMMDD`) into a `Date`.
+///
+/// ```gleam
+/// ical.parse_date("20230101") // -> Ok(Date(2023, Jan, 1))
+/// ```
+pub fn parse_date(raw: String) -> Result(calendar.Date, ParseError) {
+  case parse_date_bytes(bit_array.from_string(raw), raw) {
+    Ok(#(date, <<>>)) -> Ok(date)
+    _ -> Error(DateParseError("Invalid date format", raw))
+  }
+}
+
+/// Parse an iCal datetime string into its components and timezone kind.
+///
+/// Returns the date, time of day, and whether the value was UTC (`Z` suffix)
+/// or floating (no timezone indicator).
+///
+/// ```gleam
+/// ical.parse_datetime_string("20230101T100000Z")
+/// // -> Ok(#(Date(2023, Jan, 1), TimeOfDay(10, 0, 0, 0), Utc))
+/// ```
+pub fn parse_datetime_string(
   raw: String,
-) -> Result(#(calendar.Date, calendar.TimeOfDay), ParseError) {
-  let value = raw
-  case bit_array.from_string(value) {
-    <<y1, y2, y3, y4, m1, m2, d1, d2, t, h1, h2, min1, min2, s1, s2>>
-      if y1 >= 48
-      && y1 <= 57
-      && y2 >= 48
-      && y2 <= 57
-      && y3 >= 48
-      && y3 <= 57
-      && y4 >= 48
-      && y4 <= 57
-      && m1 >= 48
-      && m1 <= 57
-      && m2 >= 48
-      && m2 <= 57
-      && d1 >= 48
-      && d1 <= 57
-      && d2 >= 48
-      && d2 <= 57
-      && t >= 48
+) -> Result(#(calendar.Date, calendar.TimeOfDay, DateTimeKind), ParseError) {
+  let is_utc = string.ends_with(raw, "Z") || string.ends_with(raw, "z")
+  let kind = case is_utc {
+    True -> Utc
+    False -> Floating
+  }
+  let clean = case is_utc {
+    True -> string.slice(raw, 0, string.length(raw) - 1)
+    False -> raw
+  }
+
+  use #(date, rest) <- result.try(
+    parse_date_bytes(bit_array.from_string(clean), raw),
+  )
+
+  case rest {
+    <<t, h1, h2, min1, min2, s1, s2>>
+      if t == 84 || t == 116
       && h1 >= 48
       && h1 <= 57
       && h2 >= 48
@@ -710,47 +729,14 @@ fn parse_datetime_value(
       && s2 >= 48
       && s2 <= 57
     -> {
-      case t == 84 || t == 116 {
-        False -> Error(DateParseError("Invalid T separator", raw))
-        True -> {
-          let y1v = y1 - 48
-          let y2v = y2 - 48
-          let y3v = y3 - 48
-          let y4v = y4 - 48
-          let m1v = m1 - 48
-          let m2v = m2 - 48
-          let d1v = d1 - 48
-          let d2v = d2 - 48
-          let h1v = h1 - 48
-          let h2v = h2 - 48
-          let min1v = min1 - 48
-          let min2v = min2 - 48
-          let s1v = s1 - 48
-          let s2v = s2 - 48
-          let year = y1v * 1000 + y2v * 100 + y3v * 10 + y4v
-          let month = m1v * 10 + m2v
-          let day = d1v * 10 + d2v
-          let hours = h1v * 10 + h2v
-          let minutes = min1v * 10 + min2v
-          let seconds = s1v * 10 + s2v
+      let hours = {h1 - 48} * 10 + {h2 - 48}
+      let minutes = {min1 - 48} * 10 + {min2 - 48}
+      let seconds = {s1 - 48} * 10 + {s2 - 48}
+      let time = calendar.TimeOfDay(hours, minutes, seconds, 0)
 
-          case calendar.month_from_int(month) {
-            Ok(month_enum) -> {
-              let date = calendar.Date(year, month_enum, day)
-              case calendar.is_valid_date(date) {
-                True -> {
-                  let time = calendar.TimeOfDay(hours, minutes, seconds, 0)
-                  case calendar.is_valid_time_of_day(time) {
-                    True -> Ok(#(date, time))
-                    False -> Error(DateParseError("Invalid time", raw))
-                  }
-                }
-                False -> Error(DateParseError("Invalid date", raw))
-              }
-            }
-            Error(_) -> Error(DateParseError("Invalid month", raw))
-          }
-        }
+      case calendar.is_valid_time_of_day(time) {
+        True -> Ok(#(date, time, kind))
+        False -> Error(DateParseError("Invalid time", raw))
       }
     }
     _ -> Error(DateParseError("Invalid datetime format", raw))
@@ -785,21 +771,21 @@ pub fn parse_datetime(
 
       case is_date {
         True ->
-          case parse_date_only(value) {
-            Ok(ts) -> ts
+          case parse_date(value) {
+            Ok(date) ->
+              timestamp.from_calendar(
+                date,
+                calendar.TimeOfDay(0, 0, 0, 0),
+                calendar.utc_offset,
+              )
             Error(_) -> timestamp.unix_epoch
           }
         False -> {
           let is_utc =
             string.ends_with(value, "Z") || string.ends_with(value, "z")
 
-          let clean_value = case is_utc {
-            True -> string.slice(value, 0, string.length(value) - 1)
-            False -> value
-          }
-
-          case parse_datetime_value(parser, clean_value) {
-            Ok(#(date, time)) -> {
+          case parse_datetime_string(value) {
+            Ok(#(date, time, _)) -> {
               let tzid = case is_utc {
                 True -> Error(ParseError("UTC"))
                 False -> get_tzid(prop.params)
