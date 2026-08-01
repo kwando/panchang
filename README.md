@@ -84,6 +84,7 @@ published package; they are only used during development.
 - `test/fixtures/icalendar/` — fixtures from the Python `icalendar` project,
   licensed under the BSD-2-Clause License.
   See `test/fixtures/icalendar/LICENSE`.
+  Source: https://github.com/collective/icalendar
 
 ## Development
 
