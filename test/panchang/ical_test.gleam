@@ -6,28 +6,7 @@ import gleam/time/duration
 import gleam/time/timestamp.{type Timestamp}
 import global_value
 import panchang/ical
-import test_utils.{tzdb}
-
-fn ical_parse(input: String) -> Result(ical.Calendar, ical.ParseError) {
-  ical.new_parser(tzdb())
-  |> ical.parse(input, None)
-}
-
-fn utc(
-  year: Int,
-  month: Int,
-  day: Int,
-  hour: Int,
-  minute: Int,
-  second: Int,
-) -> Timestamp {
-  let assert Ok(m) = calendar.month_from_int(month)
-  timestamp.from_calendar(
-    calendar.Date(year, m, day),
-    calendar.TimeOfDay(hour, minute, second, 0),
-    calendar.utc_offset,
-  )
-}
+import test_utils.{tzdb, utc}
 
 pub fn parse_date_test() {
   let assert Ok(date) = ical.parse_date("20230101")
@@ -398,7 +377,7 @@ fn check_ts(
   expected: Timestamp,
 ) {
   let prop = ical.Property("DTSTART", params, value)
-  let parser = make_test_parser()
+  let parser = default_parser()
   assert ical.parse_timestamp(prop, parser, fallback_tz) == expected
 }
 
@@ -1146,12 +1125,6 @@ pub fn parse_quoted_params_test() {
   check("quoted-multi@test", "Doe; John", Some("REQ-PARTICIPANT"))
 }
 
-fn make_test_parser() -> ical.Parser {
-  global_value.create_with_unique_name("test-parser", fn() {
-    ical.new_parser(tzdb())
-  })
-}
-
 // DURATION fallback when DTEND is missing; DTEND takes priority over DURATION; unix_epoch when both are missing
 pub fn event_dtend_tests() {
   let input =
@@ -1193,4 +1166,14 @@ pub fn event_dtend_tests() {
 
   let assert Ok(no_end) = list.find(events, fn(e) { e.uid == "no-end@test" })
   assert no_end.end_time == timestamp.unix_epoch
+}
+
+fn default_parser() -> ical.Parser {
+  global_value.create_with_unique_name("test-parser", fn() {
+    ical.new_parser(tzdb())
+  })
+}
+
+fn ical_parse(input: String) -> Result(ical.Calendar, ical.ParseError) {
+  ical.parse(default_parser(), input, None)
 }

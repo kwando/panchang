@@ -6,7 +6,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import gleam/time/calendar
-import gleam/time/timestamp
+import gleam/time/timestamp.{type Timestamp}
 import global_value
 import panchang/ical
 import tzif/database
@@ -242,7 +242,7 @@ fn role_to_string(role: ical.AttendeeParticipation) -> String {
   }
 }
 
-fn render_timestamp(ts: Option(timestamp.Timestamp)) -> String {
+fn render_timestamp(ts: Option(Timestamp)) -> String {
   case ts {
     Some(t) -> quote(timestamp.to_rfc3339(t, calendar.utc_offset))
     None -> "-"
@@ -303,4 +303,20 @@ fn trim_spaces(line: BitArray, count: Int) {
       }
     }
   }
+}
+
+pub fn utc(
+  year: Int,
+  month: Int,
+  day: Int,
+  hour: Int,
+  minute: Int,
+  second: Int,
+) -> Timestamp {
+  let assert Ok(m) = calendar.month_from_int(month)
+  timestamp.from_calendar(
+    calendar.Date(year, m, day),
+    calendar.TimeOfDay(hour, minute, second, 0),
+    calendar.utc_offset,
+  )
 }
