@@ -63,9 +63,13 @@ This library is a parser, not a full calendar runtime. It does **not**:
 - **Model every iCal component** as a typed record. `VTODO`, `VJOURNAL`,
   `VFREEBUSY`, `VTIMEZONE`, and `VALARM` are available as raw components via
   `parse_tree`, but are not converted into dedicated Gleam types.
-- **Parse custom `VTIMEZONE` rules**. Datetimes are resolved using the IANA
-  timezone database loaded by `tzif`. Calendars that redefine timezone behavior
-  rather than referencing a standard tzid may not resolve correctly.
+- **Parse embedded `VTIMEZONE` definitions**. Datetimes are resolved using the
+  IANA timezone database via `tzif`, which covers all standard timezone
+  identifiers (e.g. `America/New_York`, `Europe/Stockholm`). Embedded
+  VTIMEZONEs in `.ics` files effectively duplicate the same data, so parsing
+  them would add complexity without changing behavior for the vast majority of
+  real-world calendars. Calendars using non-standard or custom `TZID` values
+  (instead of IANA identifiers) may not resolve correctly.
 - **Handle scheduling semantics** such as iTIP/iMIP invitations, attendee
   responses, or conflict detection.
 - **Execute alarms**. `VALARM` components can be read via `parse_tree`, but the
