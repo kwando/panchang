@@ -1,0 +1,15 @@
+---
+version: 1.5.5
+title: icalendar_rfc_6868
+---
+VCALENDAR
+  X-PARAM
+    NEWLINE: "^n"
+    ALL: "^^^'^n"
+    UNKNOWN: "^a^ ^asd"
+    value: "asd"
+  BEGIN:VEVENT
+    ATTENDEE
+      CN: "George Herman ^'Babe^' Ruth"
+      value: "mailto:babe@example.com"
+  END:VEVENT

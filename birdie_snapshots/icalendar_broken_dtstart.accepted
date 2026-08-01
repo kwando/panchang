@@ -1,0 +1,11 @@
+---
+version: 1.5.5
+title: icalendar_broken_dtstart
+---
+VCALENDAR
+  VERSION: "2.0"
+  PRODID: "test"
+  BEGIN:VEVENT
+    UID: "test-123"
+    DTSTART: "INVALID-DATE"
+  END:VEVENT

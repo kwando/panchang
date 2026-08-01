@@ -1,0 +1,36 @@
+---
+version: 1.5.5
+title: icalendar_issue_1050_calendar_with_events_and_todos_calendar
+---
+Calendar
+  version: "2.0"
+  prodid: "-//Test//Test//EN"
+  timezone: "UTC"
+  Event
+    uid: "event-1@example.com"
+    summary: "Test Event 1"
+    description: ""
+    location: ""
+    url: ""
+    start_time: "2025-01-15T15:00:00Z"
+    end_time: "2025-01-15T16:00:00Z"
+    created: -
+    last_modified: -
+    generated_at: -
+    organizer: -
+    attendees: []
+    all_day: False
+  Event
+    uid: "event-2@example.com"
+    summary: "Test Event 2"
+    description: ""
+    location: ""
+    url: ""
+    start_time: "2025-01-16T15:00:00Z"
+    end_time: "2025-01-16T16:00:00Z"
+    created: -
+    last_modified: -
+    generated_at: -
+    organizer: -
+    attendees: []
+    all_day: False

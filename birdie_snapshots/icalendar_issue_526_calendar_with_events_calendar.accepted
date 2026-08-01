@@ -1,0 +1,36 @@
+---
+version: 1.5.5
+title: icalendar_issue_526_calendar_with_events_calendar
+---
+Calendar
+  version: "2.0"
+  prodid: "icalendar-2023"
+  timezone: "UTC"
+  Event
+    uid: "1"
+    summary: " Some event ':'"
+    description: ""
+    location: ""
+    url: ""
+    start_time: "2021-11-01T16:00:00Z"
+    end_time: "2021-11-01T16:30:00Z"
+    created: -
+    last_modified: -
+    generated_at: "2021-10-04T15:02:45Z"
+    organizer: -
+    attendees: []
+    all_day: False
+  Event
+    uid: "2"
+    summary: " Some other event"
+    description: ""
+    location: ""
+    url: ""
+    start_time: "2021-11-01T16:40:00Z"
+    end_time: "2021-11-01T16:50:00Z"
+    created: -
+    last_modified: -
+    generated_at: "2021-10-04T15:02:45Z"
+    organizer: -
+    attendees: []
+    all_day: False

@@ -1,0 +1,42 @@
+---
+version: 1.5.5
+title: icalendar_property_params_calendar
+---
+Calendar
+  version: "2.0"
+  prodid: "//RESEARCH IN MOTION//BIS 3.0"
+  timezone: "UTC"
+  Event
+    uid: "XRIMCAL-628059586-522954492-9750559"
+    summary: "Test meeting from BB"
+    description: "Test meeting from BB"
+    location: ""
+    url: ""
+    start_time: "2012-08-14T00:00:00Z"
+    end_time: "2012-08-15T00:00:00Z"
+    created: -
+    last_modified: -
+    generated_at: "2012-08-13T15:14:58Z"
+    organizer:
+      address: "mailto:rembrand@daxlab.com"
+      participation: MustAttend
+      status: NeedsAction
+      response_requested: -
+      cutype: -
+    attendees:
+      - address: "MAILTO:rembrand@xs4all.nl"
+        participation: MustAttend
+        status: NeedsAction
+        response_requested: True
+        cutype: -
+      - address: "MAILTO:rembrand@daxlab.com"
+        participation: MustAttend
+        status: NeedsAction
+        response_requested: True
+        cutype: -
+      - address: "MAILTO:rembspam@xs4all.nl"
+        participation: MustAttend
+        status: NeedsAction
+        response_requested: True
+        cutype: -
+    all_day: True

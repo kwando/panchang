@@ -1,0 +1,22 @@
+---
+version: 1.5.5
+title: icalendar_issue_466_convert_tzid_with_slash_calendar
+---
+Calendar
+  version: ""
+  prodid: ""
+  timezone: "UTC"
+  Event
+    uid: "0cab49a0-1167-40f0-bfed-ecb4d117047d"
+    summary: "Just chatting"
+    description: "Just Chatting."
+    location: ""
+    url: ""
+    start_time: "2022-10-21T20:00:00Z"
+    end_time: "2022-10-21T21:00:00Z"
+    created: -
+    last_modified: -
+    generated_at: "2022-10-19T10:29:50Z"
+    organizer: -
+    attendees: []
+    all_day: False

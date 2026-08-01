@@ -1,0 +1,31 @@
+---
+version: 1.5.5
+title: icalendar_rfc_7256_multi_value_parameters
+---
+VCALENDAR
+  BEGIN:VEVENT
+    ATTENDEE
+      DELEGATED-TO: "mailto:jdoe@example.com","mailto:jqpublic@example.com"
+      value: "mailto:jsmith@example.com"
+    ATTENDEE
+      DELEGATED-FROM: "mailto:jsmith@example.com","mailto:jdoe@example.com"
+      value: "mailto:jdoe@example.com"
+    ATTENDEE
+      MEMBER: "mailto:projectA@example.com","mailto:projectB@example.com"
+      value: "mailto:janedoe@example.com"
+    UID: "list"
+    DESCRIPTION: "These are all the parameters which might come as a list."
+  END:VEVENT
+  BEGIN:VEVENT
+    ATTENDEE
+      DELEGATED-TO: "mailto:jdoe@example.com"
+      value: "mailto:jsmith@example.com"
+    ATTENDEE
+      DELEGATED-FROM: "mailto:jsmith@example.com"
+      value: "mailto:jdoe@example.com"
+    ATTENDEE
+      MEMBER: "mailto:projectA@example.com"
+      value: "mailto:janedoe@example.com"
+    UID: "single"
+    DESCRIPTION: "These are all the parameters which might come as a list but here they only have one value."
+  END:VEVENT

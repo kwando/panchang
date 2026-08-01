@@ -1,0 +1,64 @@
+---
+version: 1.5.5
+title: icalendar_issue_722_timezone_transition_ambiguity_calendar
+---
+Calendar
+  version: ""
+  prodid: ""
+  timezone: "UTC"
+  Event
+    uid: "0"
+    summary: "This event is clearly in winter"
+    description: ""
+    location: ""
+    url: ""
+    start_time: "2024-03-03T08:00:00Z"
+    end_time: "1970-01-01T00:00:00Z"
+    created: -
+    last_modified: -
+    generated_at: -
+    organizer: -
+    attendees: []
+    all_day: False
+  Event
+    uid: "1"
+    summary: "This event is clearly in summer"
+    description: ""
+    location: ""
+    url: ""
+    start_time: "2024-08-03T08:00:00Z"
+    end_time: "1970-01-01T00:00:00Z"
+    created: -
+    last_modified: -
+    generated_at: -
+    organizer: -
+    attendees: []
+    all_day: False
+  Event
+    uid: "2"
+    summary: "Transition is from 8am -> 6am, so 8:00:01 is summer"
+    description: ""
+    location: ""
+    url: ""
+    start_time: "2024-05-05T08:00:01Z"
+    end_time: "1970-01-01T00:00:00Z"
+    created: -
+    last_modified: -
+    generated_at: -
+    organizer: -
+    attendees: []
+    all_day: False
+  Event
+    uid: "3"
+    summary: "Transition is from 8am -> 6am, so 7:00:01 is winter RFC5545 does not allow us to be at the later TZ."
+    description: ""
+    location: ""
+    url: ""
+    start_time: "2024-05-05T07:00:01Z"
+    end_time: "1970-01-01T00:00:00Z"
+    created: -
+    last_modified: -
+    generated_at: -
+    organizer: -
+    attendees: []
+    all_day: False

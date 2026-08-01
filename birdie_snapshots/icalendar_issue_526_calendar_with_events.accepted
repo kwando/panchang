@@ -1,0 +1,33 @@
+---
+version: 1.5.5
+title: icalendar_issue_526_calendar_with_events
+---
+VCALENDAR
+  VERSION: "2.0"
+  PRODID: "icalendar-2023"
+  BEGIN:VEVENT
+    UID: "1"
+    SUMMARY: " Some event ':'"
+    DTSTART
+      TZID: "Western/Central Europe"
+      VALUE: "DATE-TIME"
+      value: "20211101T160000"
+    DTEND
+      TZID: "Western/Central Europe"
+      VALUE: "DATE-TIME"
+      value: "20211101T163000"
+    DTSTAMP: "20211004T150245Z"
+  END:VEVENT
+  BEGIN:VEVENT
+    UID: "2"
+    SUMMARY: " Some other event"
+    DTSTART
+      TZID: "Western/Central Europe"
+      VALUE: "DATE-TIME"
+      value: "20211101T164000"
+    DTEND
+      TZID: "Western/Central Europe"
+      VALUE: "DATE-TIME"
+      value: "20211101T165000"
+    DTSTAMP: "20211004T150245Z"
+  END:VEVENT

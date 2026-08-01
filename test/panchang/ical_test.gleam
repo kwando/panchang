@@ -229,6 +229,25 @@ pub fn parse_escaped_text_test() {
 }
 
 // verify empty SUMMARY value is preserved as empty string
+// verify literal unescaped colons in SUMMARY are preserved
+pub fn parse_summary_with_colons_test() {
+  let input =
+    "
+      BEGIN:VCALENDAR
+      VERSION:2.0
+      PRODID:-//Test//EN
+      BEGIN:VEVENT
+      SUMMARY:Meeting at 3:00 PM: bring notes
+      UID:colon@test
+      END:VEVENT
+      END:VCALENDAR
+      "
+    |> test_utils.trim_margin
+  let assert Ok(calendar) = ical_parse(input)
+  let assert [event] = calendar.events
+  assert event.summary == "Meeting at 3:00 PM: bring notes"
+}
+
 pub fn parse_empty_summary_test() {
   let input =
     "

@@ -1,0 +1,22 @@
+---
+version: 1.5.5
+title: icalendar_timezoned_calendar
+---
+Calendar
+  version: "2.0"
+  prodid: "-//Plone.org//NONSGML plone.app.event//EN"
+  timezone: "Europe/Vienna"
+  Event
+    uid: "123456"
+    summary: "artsprint 2012"
+    description: "sprinting at the artsprint"
+    location: "aka bild, wien"
+    url: ""
+    start_time: "2012-02-13T09:00:00Z"
+    end_time: "2012-02-17T17:00:00Z"
+    created: "2010-10-10T09:10:10Z"
+    last_modified: -
+    generated_at: "2010-10-10T09:10:10Z"
+    organizer: -
+    attendees: []
+    all_day: False

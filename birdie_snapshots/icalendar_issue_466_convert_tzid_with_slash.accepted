@@ -1,0 +1,19 @@
+---
+version: 1.5.5
+title: icalendar_issue_466_convert_tzid_with_slash
+---
+VCALENDAR
+  BEGIN:VEVENT
+    UID: "0cab49a0-1167-40f0-bfed-ecb4d117047d"
+    DTSTAMP: "20221019T102950Z"
+    DTSTART
+      TZID: "/Europe/Stockholm"
+      value: "20221021T200000"
+    DTEND
+      TZID: "/Europe/Stockholm"
+      value: "20221021T210000"
+    SUMMARY: "Just chatting"
+    DESCRIPTION: "Just Chatting."
+    CATEGORIES: "Just Chatting"
+    RRULE: "FREQ=WEEKLY;BYDAY=FR"
+  END:VEVENT
